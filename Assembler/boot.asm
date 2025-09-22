@@ -1,0 +1,9 @@
+LDI A, 0xFFFF
+SPIN A
+LDI A, 0x0000
+DISPTXT A, <<BOOT_MSG, [0x0004]
+Bandit-16 OS 64K
+Stack Initialised at 0xFFFF
+READY
+>
+BOOT_MSG

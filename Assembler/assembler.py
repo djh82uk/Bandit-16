@@ -49,25 +49,6 @@ MEM_MAX   = 1 << 16
 FILL_WORD = 0x0000
 
 
-# ---------- Auto prologue (assembly source lines) ----------
-PROLOGUE = [
-    "LDI A, 0xFFFF",
-    "SPIN A",
-    "LDI A, 0x0000",
-    "DISPTXT A, <<BOOT_MSG, [0x0004]",
-    "Bandit-16 OS 64K",
-    "Stack Initialised at 0xFFFF",
-    "READY",
-    ">",
-    "BOOT_MSG",
-]
-
-
-
-
-
-# compute prologue length (in instruction words as used by instr_length)
-PROLOGUE_WORDS = sum(1 for _ in PROLOGUE)  # each entry is one instruction for your assembler
 
 # ---------- Helpers ----------
 
@@ -135,7 +116,7 @@ class Asm:
     def __init__(self, text):
         user_lines = text.splitlines()
         # Prepend prologue lines so pass1/pass2 treat them like normal source
-        self.lines = PROLOGUE + user_lines
+        self.lines = user_lines
         self.labels = {}
         self.mem, self.pc, self.errors = {}, 0, []
 
@@ -178,7 +159,7 @@ class Asm:
         return 1
 
     def pass1(self):
-        pc, i = PROLOGUE_WORDS, 0
+        pc, i = 0, 0
         while i < len(self.lines):
             ln = i+1
             raw = self.lines[i]
@@ -337,7 +318,7 @@ class Asm:
         # FI
         if mnem == "FI":
             if len(ops) != 0:
-                raise ValueError("MFI expects: Nothing")
+                raise ValueError("FI expects: Nothing")
             self.emit_inst(pack_upper(OPCODE["FI"], 0, 0, 0), 0)
             return
         
@@ -534,7 +515,7 @@ class Asm:
         # POP
         if mnem == "POP":
             if len(ops) != 1:
-                raise ValueError("PUSH expects: PUSH dest")    
+                raise ValueError("POP expects: POP src")    
             d = self.parse_reg(ops[0]) 
             self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, d), 0)
@@ -544,7 +525,7 @@ class Asm:
         # SPIN
         if mnem == "SPIN":
             if len(ops) != 1:
-                raise ValueError("PUSH expects: PUSH dest")    
+                raise ValueError("SPIN expects: SPIN dest")    
             d = self.parse_reg(ops[0])  
             self.emit_inst(pack_upper(OPCODE["SPIN"], 0, d, 0), 0)
             return
@@ -644,22 +625,30 @@ def write_intel_hex_image(asm, path_prefix, line_size=16):
         f.write(":00000001FF\n")
     print(f"[ok] Wrote {out_path} ({len(byte_array)} bytes)")
 
-def assemble_file(in_path, out_path):
-    text = Path(in_path).read_text(encoding="utf-8")
-    a    = Asm(text)
-    a.pass1()
-    a.pass2()
+def assemble_file(user_in_path, out_path):
+    # Read boot.asm first
+    boot_text = Path("boot.asm").read_text(encoding="utf-8")
+    user_text = Path(user_in_path).read_text(encoding="utf-8")
+
+    # Combine the two source files in sequence
+    combined_text = boot_text + "\n" + user_text
+
+    a = Asm(combined_text)
+    a.pass1()   # pass1 sees both files in order
+    a.pass2()          # pass2 emits both files in order
+
     if a.errors:
         print("Errors:")
         for e in a.errors:
             print(" -", e)
         sys.exit(1)
+
     a.write_words_hex(out_path)
-    base = out_path.rsplit('.',1)[0]
-    # companion images
+    base = out_path.rsplit('.', 1)[0]
     write_bin_image(a, base)
     write_intel_hex_image(a, base)
     print(f"[ok] Wrote {out_path} and companion binary/ihex images")
+
 
 
 
