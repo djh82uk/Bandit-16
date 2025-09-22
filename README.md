@@ -60,6 +60,9 @@ A 16-bit Computer CPU based on a custom ISA, it has a 16-bit Address bus and a 1
 | Example (ADD X)          | 00000101          | 0001                | 00                      | 02                           | 0000000000000000                 |
 
 ## Instructions:
+
+<div style="overflow-x: auto;">
+
 | Instruction | Description                                                                                                                                       | Step1  | Step2        | Step3          | Step4        | Step5             | Step6       | Step7    | Step8    | Step9    | Step10   | Step11   | Step12   | Step13   | Step14   | Step15   | Step16   |
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------------------|--------|--------------|----------------|--------------|-------------------|-------------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|
 | NOP         | No Operation (Dummy Instruction that burns 3 cpu cycles)                                                                                          | CO, MI | ROO, IIH, CE | EndCMD         | Not Used     | Not Used          | Not Used    | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used |
@@ -86,6 +89,8 @@ A 16-bit Computer CPU based on a custom ISA, it has a 16-bit Address bus and a 1
 | SPINC       | Increment the stack pointer by 1                                                                                                                  | CO, MI | ROO, IIH, CE | SPINC          | EndCMD       | Not Used          | Not Used    | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used |
 | SPDEC       | Decrement the stack pointer by 1                                                                                                                  | CO, MI | ROO, IIH, CE | SPDEC          | EndCMD       | Not Used          | Not Used    | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used |
 | FI          | Latch all of the flags to the flags register (so they can be check next cycle)                                                                    | CO, MI | ROO, IIH, CE | FI             | EndCMD       | Not Used          | Not Used    | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used | Not Used |
+
+</div>
 
 ## Composite Instructions (only available via Assembler):
 
