@@ -20,7 +20,7 @@ CONTROL_LINES_MAP = {
 
 INSTRUCTIONS = {
     "NOP": (0b00000000, "CO,MI","ROO, IIH, CE", "EndCmd","","","","","","","","","","","","",""),
-    "MOV": (0b00000001, "CO,MI","ROO, IIH, CE","CO, MI","RegOut, RegIn","EndCmd","","","","","","","","","","",""),
+    "MOV": (0b00000001, "CO,MI","ROO, IIH, CE", "RegOut, RegIn","EndCmd","","","","","","","","","","","",""),
     "LD":  (0b00000010, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, MI","RegIn, RAO","EndCmd","","","","","","","","",""),
     "ST":  (0b00000011, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, MI","RegOut, RAI","EndCmd","","","","","","","","",""),
     "LDI": (0b00000100, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, RegIn","EndCmd","","","","","","","","","",""),
