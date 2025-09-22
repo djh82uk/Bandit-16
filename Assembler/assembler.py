@@ -55,7 +55,7 @@ PROLOGUE = [
     "SPIN A",
     "LDI A, 0x0000",
     "DISPTXT A, <<BOOT_MSG, [0x0004]",
-    "Coco-Nimbus-16 OS 64K",
+    "Bandit-16 OS 64K",
     "Stack Initialised at 0xFFFF",
     "READY",
     ">",
