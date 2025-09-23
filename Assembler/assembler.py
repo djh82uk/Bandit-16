@@ -374,7 +374,7 @@ class Asm:
             s1 = self.parse_reg(ops[0]); s2 = self.parse_reg(ops[1]); d = self.parse_reg(ops[2])
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, s1, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, s2, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP1[mnem], 0, d), 0)
+            self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2[mnem], 0, d), 0)
             return
         # CMP
         # Equal = Z=1, C=0
