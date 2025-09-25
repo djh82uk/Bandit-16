@@ -2,6 +2,15 @@
 import re, sys
 from pathlib import Path
 
+# TO DO 
+# Comapare with RAM
+# ROR and ROL for rotate
+# ASL for arithmetic shitft Left
+# JSR (push PC to stack, and pull back later)
+# JNC, JN, JO for not carry, negative flag and overflow flag
+# Clear Flags command
+# Interupts?
+
 # ---------- Config ----------
 
 REGS = {
@@ -154,6 +163,7 @@ class Asm:
         if mnem=="INCB": return 8
         if mnem=="DECB": return 8
         if mnem=="CMP": return 3
+        if mnem=="CMPMEMA": return 8
         if mnem=="PUSH": return 2
         if mnem=="POP": return 2
         return 1
@@ -387,6 +397,62 @@ class Asm:
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, s1, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, s2, 0), 0)
             self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
+            return
+
+        if mnem == "CMPMEMA":
+            if len(ops) != 1:
+                raise ValueError("CMPMEMA expects: CMPMEMA [addr]")
+            addr = parse_expr(ops[0][1:-1], self.labels) & 0xFFFF
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 1, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, 1), addr)  
+            self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 1, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 1), 0)
+            return
+        
+        if mnem == "CMPMEMB":
+            if len(ops) != 1:
+                raise ValueError("CMPMEMB expects: CMPMEMB [addr]")
+            addr = parse_expr(ops[0][1:-1], self.labels) & 0xFFFF
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, 0), addr)  
+            self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 1, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 0), 0)
+            return
+        
+        if mnem == "CMPMEMX":
+            if len(ops) != 1:
+                raise ValueError("CMPMEMX expects: CMPMEMX [addr]")
+            addr = parse_expr(ops[0][1:-1], self.labels) & 0xFFFF
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, 3), addr)  
+            self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 2, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 3, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
+            return
+        
+        if mnem == "CMPMEMY":
+            if len(ops) != 1:
+                raise ValueError("CMPMEMY expects: CMPMEMY [addr]")
+            addr = parse_expr(ops[0][1:-1], self.labels) & 0xFFFF
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 2, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, 2), addr)  
+            self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 3, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 2, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
+            self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 2), 0)
             return
 
         # INCA
