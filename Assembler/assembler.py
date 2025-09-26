@@ -164,6 +164,9 @@ class Asm:
         if mnem=="DECB": return 8
         if mnem=="CMP": return 3
         if mnem=="CMPMEMA": return 8
+        if mnem=="CMPMEMB": return 8
+        if mnem=="CMPMEMX": return 8
+        if mnem=="CMPMEMY": return 8
         if mnem=="PUSH": return 2
         if mnem=="POP": return 2
         return 1
