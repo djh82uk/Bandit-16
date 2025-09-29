@@ -3,7 +3,6 @@ import re, sys
 from pathlib import Path
 
 # TO DO 
-# Comapare with RAM
 # ROR and ROL for rotate
 # ASL for arithmetic shitft Left
 # JSR (push PC to stack, and pull back later)
@@ -42,9 +41,10 @@ OPCODE = {
     "SPAPUSH": 0b00010110,
     "SPINC":  0b00010111,
     "SPDEC":  0b00011000,
-    "FI":     0b00011001,
-}
+    "FI":     0b00011001,   
 
+}
+#"LDCO": 0b00011010,
 
 SUBOP1 = {"SHL":0b0011, "SHR":0b0100}
 SUBOP2 = {"ADD":0b0001, "SUB":0b0010, "AND":0b0101, "OR":0b0110, "XOR":0b0111}
@@ -154,21 +154,19 @@ class Asm:
             return len(t)*2
         if mnem in SUBOP1: return 2
         if mnem in SUBOP2: return 3
-        if mnem=="INCX": return 8
-        if mnem=="DECX": return 8
-        if mnem=="INCY": return 8
-        if mnem=="DECY": return 8
-        if mnem=="INCA": return 8
-        if mnem=="DECA": return 8
-        if mnem=="INCB": return 8
-        if mnem=="DECB": return 8
+        if mnem=="INCX": return 6
+        if mnem=="DECX": return 6
+        if mnem=="INCY": return 6
+        if mnem=="DECY": return 6
+        if mnem=="INCA": return 6
+        if mnem=="DECA": return 6
+        if mnem=="INCB": return 6
+        if mnem=="DECB": return 6
         if mnem=="CMP": return 3
-        if mnem=="CMPMEMA": return 8
-        if mnem=="CMPMEMB": return 8
-        if mnem=="CMPMEMX": return 8
-        if mnem=="CMPMEMY": return 8
-        if mnem=="PUSH": return 2
-        if mnem=="POP": return 2
+        if mnem=="CMPMEMA": return 6
+        if mnem=="CMPMEMB": return 6
+        if mnem=="CMPMEMX": return 6
+        if mnem=="CMPMEMY": return 6
         return 1
 
     def pass1(self):
@@ -328,6 +326,14 @@ class Asm:
             self.emit_inst(pack_upper(OPCODE["MOV"], 0, s, d), 0)
             return
         
+        # LDCO dest (Needs CO to D Bus)
+        # if mnem == "LDCO":
+        #     if len(ops) != 1:
+        #         raise ValueError("LDCO expects: LDCO dest")
+        #     d = self.parse_reg(ops[0])
+        #     self.emit_inst(pack_upper(OPCODE["LDCO"], 0, 0, d), 0)
+        #     return
+        
         # FI
         if mnem == "FI":
             if len(ops) != 0:
@@ -407,12 +413,10 @@ class Asm:
                 raise ValueError("CMPMEMA expects: CMPMEMA [addr]")
             addr = parse_expr(ops[0][1:-1], self.labels) & 0xFFFF
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 1, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, 1), addr)  
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 1, 0), 0)
             self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 1), 0)
             return
         
@@ -421,12 +425,10 @@ class Asm:
                 raise ValueError("CMPMEMB expects: CMPMEMB [addr]")
             addr = parse_expr(ops[0][1:-1], self.labels) & 0xFFFF
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 0, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, 0), addr)  
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 1, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 0), 0)
             return
         
@@ -435,12 +437,10 @@ class Asm:
                 raise ValueError("CMPMEMX expects: CMPMEMX [addr]")
             addr = parse_expr(ops[0][1:-1], self.labels) & 0xFFFF
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, 3), addr)  
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 2, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
             return
         
@@ -449,12 +449,10 @@ class Asm:
                 raise ValueError("CMPMEMY expects: CMPMEMY [addr]")
             addr = parse_expr(ops[0][1:-1], self.labels) & 0xFFFF
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 2, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, 2), addr)  
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 2, 0), 0)
             self.emit_inst(pack_upper(OPCODE["CMP"], SUBOP2["SUB"], 0, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 2), 0)
             return
 
@@ -462,13 +460,11 @@ class Asm:
         if mnem == "INCA":
             if len(ops) != 0:
                 raise ValueError("INCA expects: Nothing")
-            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)            
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)         
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), 1)
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2["ADD"], 0, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
             return
         
@@ -476,13 +472,11 @@ class Asm:
         if mnem == "DECA":
             if len(ops) != 0:
                 raise ValueError("DECA expects: Nothing")  
-            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)       
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)     
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), 1)
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2["SUB"], 0, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
             return
         
@@ -490,13 +484,11 @@ class Asm:
         if mnem == "INCB":
             if len(ops) != 0:
                 raise ValueError("INCB expects: Nothing")
-            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)            
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)          
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), 1)
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 1, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2["ADD"], 0, 1), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
             return
         
@@ -504,13 +496,11 @@ class Asm:
         if mnem == "DECB":
             if len(ops) != 0:
                 raise ValueError("DECB expects: Nothing")  
-            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)       
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)    
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), 1)
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 1, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2["SUB"], 0, 1), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
             return
         
@@ -518,13 +508,11 @@ class Asm:
         if mnem == "INCX":
             if len(ops) != 0:
                 raise ValueError("INCX expects: Nothing")
-            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)            
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)   
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), 1)
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 2, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2["ADD"], 0, 2), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
             return
 
@@ -533,12 +521,10 @@ class Asm:
             if len(ops) != 0:
                 raise ValueError("DECX expects: Nothing")  
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)       
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), 1)
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 2, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2["SUB"], 0, 2), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
             return
         
@@ -546,13 +532,11 @@ class Asm:
         if mnem == "INCY":
             if len(ops) != 0:
                 raise ValueError("INCY expects: Nothing")
-            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 2, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)            
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 2, 0), 0)         
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 2), 1)
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 2, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2["ADD"], 0, 3), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 2), 0)
             return
 
@@ -560,13 +544,11 @@ class Asm:
         if mnem == "DECY":
             if len(ops) != 0:
                 raise ValueError("DECY expects: Nothing")  
-            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 2, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)       
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 2, 0), 0)   
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 2), 1)
             self.emit_inst(pack_upper(OPCODE["ALULD1"], 0, 3, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALULD2"], 0, 2, 0), 0)
             self.emit_inst(pack_upper(OPCODE["ALU"], SUBOP2["SUB"], 0, 3), 0)
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 2), 0)
             return
         
@@ -577,7 +559,6 @@ class Asm:
                 raise ValueError("PUSH expects: PUSH src")    
             s = self.parse_reg(ops[0])  
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, s, 0), 0)
-            self.emit_inst(pack_upper(OPCODE["SPDEC"], 0, 0, 0), 0)
 
             return
         
@@ -586,7 +567,6 @@ class Asm:
             if len(ops) != 1:
                 raise ValueError("POP expects: POP src")    
             d = self.parse_reg(ops[0]) 
-            self.emit_inst(pack_upper(OPCODE["SPINC"], 0, 0, 0), 0)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, d), 0)
             
             return
@@ -600,9 +580,6 @@ class Asm:
             return
 
         
-
-# TO DO PUSH, POP, SPDOut, SPIN
-
         # Jumps
         if mnem in ("JMP","JZ","JNZ","JC","JNI"):
             if len(ops) != 1:

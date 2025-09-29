@@ -44,11 +44,13 @@ INSTRUCTIONS = {
     "CMP": (0b00010010, "CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","","",""),
     "SPIN": (0b00010011, "CO,MI","ROO, IIH, CE","RegOut, SPIn","EndCmd","","","","","","","","","","","",""),
     "SPDOUT": (0b00010100, "CO,MI","ROO, IIH, CE","RegIn, SPDOut","EndCmd","","","","","","","","","","","",""),
-    "SPAPOP": (0b00010101, "CO,MI","ROO, IIH, CE","MI, SPAOut","RegIn, RAO","EndCmd","","","","","","","","","","",""),
-    "SPAPUSH": (0b00010110, "CO,MI","ROO, IIH, CE","MI, SPAOut","RegOut, RAI","EndCmd","","","","","","","","","","",""),
+    "SPAPOP": (0b00010101, "CO,MI","ROO, IIH, CE","SPINC","MI, SPAOut","RegIn, RAO","EndCmd","","","","","","","","","",""),
+    "SPAPUSH": (0b00010110, "CO,MI","ROO, IIH, CE","MI, SPAOut","RegOut, RAI","SPDEC","EndCmd","","","","","","","","","",""),
     "SPINC": (0b00010111, "CO,MI","ROO, IIH, CE","SPINC","EndCmd","","","","","","","","","","","",""),
     "SPDEC": (0b00011000, "CO,MI","ROO, IIH, CE","SPDEC","EndCmd","","","","","","","","","","","",""),
     "FI": (0b00011001, "CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","","","")
+    #"LDCO": (0b00011010, "CO,MI","ROO, IIH, CE","CO, RegIn","EndCmd","","","","","","","","","","","","") Needs CO to D Bus
+
 }
 
 
