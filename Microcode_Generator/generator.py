@@ -5,7 +5,7 @@ from pathlib import Path
 CONTROL_LINES_MAP = {
     # ROM 1
     "CE": (1, 0), "CO": (1, 1), "MI": (1, 2), "RAO": (1, 3),
-    "RAI": (1, 4), "ROO": (1, 5), "NC8": (1, 6), "HLT": (1, 7),
+    "RAI": (1, 4), "ROO": (1, 5), "CDO": (1, 6), "HLT": (1, 7),
     # ROM 2
     "RegOut": (2, 0), "RegIn": (2, 1), "IIL": (2, 2), "IIH": (2, 3),
     "IOL": (2, 4), "IOH": (2, 5), "IOO": (2, 6), "IOI": (2, 7),
@@ -48,8 +48,8 @@ INSTRUCTIONS = {
     "SPAPUSH": (0b00010110, "CO,MI","ROO, IIH, CE","MI, SPAOut","RegOut, RAI","SPDEC","EndCmd","","","","","","","","","",""),
     "SPINC": (0b00010111, "CO,MI","ROO, IIH, CE","SPINC","EndCmd","","","","","","","","","","","",""),
     "SPDEC": (0b00011000, "CO,MI","ROO, IIH, CE","SPDEC","EndCmd","","","","","","","","","","","",""),
-    "FI": (0b00011001, "CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","","","")
-    #"LDCO": (0b00011010, "CO,MI","ROO, IIH, CE","CO, RegIn","EndCmd","","","","","","","","","","","","") Needs CO to D Bus
+    "FI": (0b00011001, "CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","","",""),
+    "LDCO": (0b00011010, "CO,MI","ROO, IIH, CE","CDO, RegIn","EndCmd","","","","","","","","","","","","") 
 
 }
 

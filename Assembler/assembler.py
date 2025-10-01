@@ -41,10 +41,11 @@ OPCODE = {
     "SPAPUSH": 0b00010110,
     "SPINC":  0b00010111,
     "SPDEC":  0b00011000,
-    "FI":     0b00011001,   
+    "FI":     0b00011001, 
+    "LDCO":   0b00011010,  
 
 }
-#"LDCO": 0b00011010,
+
 
 SUBOP1 = {"SHL":0b0011, "SHR":0b0100}
 SUBOP2 = {"ADD":0b0001, "SUB":0b0010, "AND":0b0101, "OR":0b0110, "XOR":0b0111}
@@ -327,12 +328,12 @@ class Asm:
             return
         
         # LDCO dest (Needs CO to D Bus)
-        # if mnem == "LDCO":
-        #     if len(ops) != 1:
-        #         raise ValueError("LDCO expects: LDCO dest")
-        #     d = self.parse_reg(ops[0])
-        #     self.emit_inst(pack_upper(OPCODE["LDCO"], 0, 0, d), 0)
-        #     return
+        if mnem == "LDCO":
+            if len(ops) != 1:
+                raise ValueError("LDCO expects: LDCO dest")
+            d = self.parse_reg(ops[0])
+            self.emit_inst(pack_upper(OPCODE["LDCO"], 0, 0, d), 0)
+            return
         
         # FI
         if mnem == "FI":
