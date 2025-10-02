@@ -49,7 +49,8 @@ INSTRUCTIONS = {
     "SPINC": (0b00010111, "CO,MI","ROO, IIH, CE","SPINC","EndCmd","","","","","","","","","","","",""),
     "SPDEC": (0b00011000, "CO,MI","ROO, IIH, CE","SPDEC","EndCmd","","","","","","","","","","","",""),
     "FI": (0b00011001, "CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","","",""),
-    "LDCO": (0b00011010, "CO,MI","ROO, IIH, CE","CDO, RegIn","EndCmd","","","","","","","","","","","","") 
+    "LDCO": (0b00011010, "CO,MI","ROO, IIH, CE","CDO, RegIn","EndCmd","","","","","","","","","","","",""),
+    "JMPR": (0b00011011, "CO,MI","ROO, IIH, CE","RegOut, IIL","IOL, JMP","EndCmd","","","","","","","","","","","")
 
 }
 

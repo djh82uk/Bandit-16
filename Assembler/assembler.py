@@ -43,7 +43,7 @@ OPCODE = {
     "SPDEC":  0b00011000,
     "FI":     0b00011001, 
     "LDCO":   0b00011010,  
-
+    "JMPR":   0b00011011,
 }
 
 
@@ -168,6 +168,10 @@ class Asm:
         if mnem=="CMPMEMB": return 6
         if mnem=="CMPMEMX": return 6
         if mnem=="CMPMEMY": return 6
+        if mnem == "JSR": return 3   # push return addr + jump
+        if mnem == "RET": return 2   # pop return addr + jump
+
+
         return 1
 
     def pass1(self):
@@ -589,6 +593,46 @@ class Asm:
             baddr = (waddr * 2) & 0xFFFF
             self.emit_inst(pack_upper(OPCODE[mnem]), baddr)
             return
+        
+        # JMPR
+        if mnem == "JMPR":
+            if len(ops) != 1:
+                raise ValueError("JUPR expects: JMPR src")  
+            s = self.parse_reg(ops[0])            
+            self.emit_inst(pack_upper(OPCODE["JMPR"], 0, s, 0), 0)   
+            return
+        
+   
+        if mnem == "JSR":
+            if len(ops) != 1:
+                raise ValueError("JSR expects: JSR label")
+
+            # Target is a label stored as word address; JMP wants byte address
+            target_word = parse_expr(ops[0], self.labels) & 0xFFFF
+            target_byte = (target_word * 2) & 0xFFFF
+
+            # Return address (byte) after this JSR macro (3 instructions = 12 bytes)
+            ret_word = (self.pc + 6) & 0xFFFF
+
+
+
+            # 1) LDI Y, ret_word
+            self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), ret_word)
+            # 2) PUSH Y
+            self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
+            # 3) JMP target_byte
+            self.emit_inst(pack_upper(OPCODE["JMP"]), target_byte)
+            return
+
+        if mnem == "RET":
+            if len(ops) != 0:
+                raise ValueError("RET expects no operands")
+            # 1) POP Y
+            self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
+            # 2) JMPR Y  (JMPR jumps to the byte address in Y)
+            self.emit_inst(pack_upper(OPCODE["JMPR"], 0, 3, 0), 0)
+            return
+
 
         # single-line DISPTXT
         if mnem == "DISPTXT":
