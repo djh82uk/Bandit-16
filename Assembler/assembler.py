@@ -44,6 +44,8 @@ OPCODE = {
     "FI":     0b00011001, 
     "LDCO":   0b00011010,  
     "JMPR":   0b00011011,
+    "JN":     0b00011100,
+    "JO":     0b00011101,
 }
 
 
@@ -586,7 +588,7 @@ class Asm:
 
         
         # Jumps
-        if mnem in ("JMP","JZ","JNZ","JC","JNI"):
+        if mnem in ("JMP","JZ","JNZ","JC","JNI","JN","JO"):
             if len(ops) != 1:
                 raise ValueError(f"{mnem} expects: {mnem} addr")
             waddr = parse_expr(ops[0], self.labels)

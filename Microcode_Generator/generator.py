@@ -15,6 +15,9 @@ CONTROL_LINES_MAP = {
     # ROM 4
     "ALUOP1": (4, 0), "ALUOP2": (4, 1), "JNI": (4, 2), "SPIn": (4, 3),
     "SPDOut": (4, 4), "SPAOut": (4, 5), "SPINC": (4, 6), "SPDEC": (4, 7),
+    # ROM 5
+    "JN": (5, 0), "JO": (5, 1), "NC1": (5, 2), "NC2": (5, 3),
+    "NC3": (5, 4), "NC4": (5, 5), "NC5": (5, 6), "NC6": (5, 7),
 
 }
 
@@ -50,7 +53,9 @@ INSTRUCTIONS = {
     "SPDEC": (0b00011000, "CO,MI","ROO, IIH, CE","SPDEC","EndCmd","","","","","","","","","","","",""),
     "FI": (0b00011001, "CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","","",""),
     "LDCO": (0b00011010, "CO,MI","ROO, IIH, CE","CDO, RegIn","EndCmd","","","","","","","","","","","",""),
-    "JMPR": (0b00011011, "CO,MI","ROO, IIH, CE","RegOut, IIL","IOL, JMP","EndCmd","","","","","","","","","","","")
+    "JMPR": (0b00011011, "CO,MI","ROO, IIH, CE","RegOut, IIL","IOL, JMP","EndCmd","","","","","","","","","","",""),
+    "JN": (0b00011100, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JN","EndCmd","","","","","","","","","",""),
+    "JO":  (0b00011101, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JO","EndCmd","","","","","","","","","","")
 
 }
 
@@ -60,7 +65,7 @@ INSTRUCTIONS = {
 ADDR_BITS = 12
 ROM_DEPTH = 1 << ADDR_BITS  # 4096 addresses
 ROM_WIDTH = 8               # 8-bit wide per ROM
-ROM_IDS = (1, 2, 3, 4)      # 4 ROMs
+ROM_IDS = (1, 2, 3, 4, 5)      # 4 ROMs
 
 
 
@@ -83,6 +88,7 @@ def populate_rom_data():
             step_byte_r2 = 0  
             step_byte_r3 = 0  
             step_byte_r4 = 0  
+            step_byte_r5 = 0  
             sig = [s.strip() for s in steps[i].split(",")]  
             if sig != ['']:   
                 print(f"Step {i}: {sig}")
@@ -103,16 +109,20 @@ def populate_rom_data():
                             step_byte_r3 |= (1 << cmd_set[1])
                         if cmd_set[0] == 4:
                             step_byte_r4 |= (1 << cmd_set[1])
+                        if cmd_set[0] == 5:
+                            step_byte_r5 |= (1 << cmd_set[1])
 
 
                 rom_data[1][rom_addr] = step_byte_r1
                 rom_data[2][rom_addr] = step_byte_r2
                 rom_data[3][rom_addr] = step_byte_r3
                 rom_data[4][rom_addr] = step_byte_r4
+                rom_data[5][rom_addr] = step_byte_r5
                 print(f"Writing {rom_data[1][rom_addr]} to ROM 1 at address {rom_addr}")
                 print(f"Writing {rom_data[2][rom_addr]} to ROM 2 at address {rom_addr}")
                 print(f"Writing {rom_data[3][rom_addr]} to ROM 3 at address {rom_addr}")
                 print(f"Writing {rom_data[4][rom_addr]} to ROM 4 at address {rom_addr}")
+                print(f"Writing {rom_data[5][rom_addr]} to ROM 5 at address {rom_addr}")
                 rom_addr = rom_addr + 1
                 print("\n")
             else:
