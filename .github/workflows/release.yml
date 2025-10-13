@@ -1,0 +1,42 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:   # allow manual trigger
+  push:
+    tags:
+      - 'v*'           # run when you push a tag like v1.0.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies (if any)
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run generator.py
+        working-directory: Microcode_Generator/generator   # 👈 adjust this to the folder where generator.py lives
+        run: |
+          python generator.py
+
+      - name: Collect output files
+        run: |
+          mkdir artifacts
+          cp generator/*.bin artifacts/ || true
+          cp generator/*.hex artifacts/ || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
