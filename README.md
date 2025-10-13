@@ -11,7 +11,7 @@ A 16-bit Computer CPU based on a custom ISA, it has a 16-bit Address bus and a 1
 - 64K x 16 Bit ROM
 - Customisable Stack (Always Decrements on PUSH, but can start from any Ram Address with no limits (It can consume all of RAM if desired, though with no protection))
 - 16-Bit ALU with 2 Input Registers and support for 16-bit operations (ADD, SUB, AND, OR, XOR, Shift Left, and Shift Right, shift operations only support shifting by 1-bit at a time)
-- Control Unit with 4 Microcode-Roms (32K x 8 bits, can add additional roms easily for more control lines)
+- Control Unit with 4 Microcode-Roms (32K x 8 bits, can add additional roms easily for more control lines) 
 
 ## Directly Accessible Control Lines:
 
