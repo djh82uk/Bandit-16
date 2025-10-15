@@ -4,14 +4,15 @@ A 16-bit Computer CPU based on a custom ISA, it has a 16-bit Address bus and a 1
 **The main sections of this design are:*
 - 16-Bit Program Counter (PC)
 - 4 General Purpose Registers (A, B, X & Y)
-- 3 1-bit Flag Registers (Carry, Zero and Input Buffer Not Empty (used with the Addressable IO))
+- 5 1-bit Flag Registers (Carry, Zero, Negative, Overflow and Input Buffer Not Empty (used with the Addressable IO))
 - 32-Bit Instruction Register (IR)
-- 16-Bit Memory Address resgister (MAR)
+- 16-Bit Data Bus
+- 16-Bit Memory Address register (MAR) and Address Bus
 - 64K x 16 Bit RAM
 - 64K x 16 Bit ROM
 - Customisable Stack (Always Decrements on PUSH, but can start from any Ram Address with no limits (It can consume all of RAM if desired, though with no protection))
 - 16-Bit ALU with 2 Input Registers and support for 16-bit operations (ADD, SUB, AND, OR, XOR, Shift Left, and Shift Right, shift operations only support shifting by 1-bit at a time)
-- Control Unit with 4 Microcode-Roms (32K x 8 bits, can add additional roms easily for more control lines)  
+- Control Unit with 5 Microcode-Roms (32K x 8 bits, can add additional roms easily for more control lines)  
 
 ## Directly Accessible Control Lines:
 
