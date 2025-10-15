@@ -1,7 +1,20 @@
+
+# ---------------------------------------------
+# Bandit-16 Microcode Generator
+# ---------------------------------------------
+# Generates microcode ROM images for the Bandit-16 CPU control unit.
+# Maps instruction mnemonics to micro-operations and outputs ROM data
+# in multiple formats for hardware and simulation.
+#
+# Author: djh82uk
+#
 import csv
 from pathlib import Path
 
-# Map Control Lines to Roms, Pins
+ # -----------------------------
+# Control Line Mapping
+# -----------------------------
+# Maps symbolic control line names to (ROM number, bit position)
 CONTROL_LINES_MAP = {
     # ROM 1
     "CE": (1, 0), "CO": (1, 1), "MI": (1, 2), "RAO": (1, 3),
@@ -18,9 +31,14 @@ CONTROL_LINES_MAP = {
     # ROM 5
     "JN": (5, 0), "JO": (5, 1), "NC1": (5, 2), "NC2": (5, 3),
     "NC3": (5, 4), "NC4": (5, 5), "NC5": (5, 6), "NC6": (5, 7),
-
 }
 
+
+
+ # -----------------------------
+# Instruction Microcode Table
+# -----------------------------
+# Each instruction mnemonic maps to (opcode, step1, step2, ..., step16)
 INSTRUCTIONS = {
     "NOP": (0b00000000, "CO,MI","ROO, IIH, CE", "EndCmd","","","","","","","","","","","","",""),
     "MOV": (0b00000001, "CO,MI","ROO, IIH, CE", "RegOut, RegIn","EndCmd","","","","","","","","","","","",""),
@@ -60,28 +78,36 @@ INSTRUCTIONS = {
 }
 
 
-# ===== ROM geometry =====
-# Address bits: [12:5]=8 (opcode bits 15..8), [3:0]=4 (micro-step)
+
+
+# -----------------------------
+# ROM Geometry and Setup
+# -----------------------------
+# Address bits: [11:4]=8 (opcode bits 15..8), [3:0]=4 (micro-step)
 ADDR_BITS = 12
-ROM_DEPTH = 1 << ADDR_BITS  # 4096 addresses
+ROM_DEPTH = 1 << ADDR_BITS  # 4096 addresses per ROM
 ROM_WIDTH = 8               # 8-bit wide per ROM
-ROM_IDS = (1, 2, 3, 4, 5)      # 4 ROMs
+ROM_IDS = (1, 2, 3, 4, 5)   # 5 ROMs
 
 
 
-rom_data = {rid: [0] * ROM_DEPTH for rid in ROM_IDS} # Initialise Roms with Zeros
+
+# Initialize ROM data arrays (filled with zeros)
+rom_data = {rid: [0] * ROM_DEPTH for rid in ROM_IDS}
 
 
 
-def populate_rom_data():    
+def populate_rom_data():
+    """
+    Populate the ROM data arrays with microcode for each instruction and step.
+    Each step sets the appropriate control lines for each ROM.
+    """
     rom_addr = 0 # Set Starting Address
     for mnemonic, (opcode, *steps) in INSTRUCTIONS.items():
         print("-----------------------------")
         print(f"Instruction: {mnemonic}")
         print(f"Opcode: {opcode:09b}")    
         print("-----------------------------\n")
-        if rom_addr >0:
-            rom_addr = rom_addr
         for i in range(0,16):
             rom_addr = (opcode << 4) | i
             step_byte_r1 = 0    
@@ -90,17 +116,12 @@ def populate_rom_data():
             step_byte_r4 = 0  
             step_byte_r5 = 0  
             sig = [s.strip() for s in steps[i].split(",")]  
-            if sig != ['']:   
+            if sig != ['']:
                 print(f"Step {i}: {sig}")
-                #print("------------------------")
-                #print(f"Number of Control Lines in Step: {len(sig)}")
-                for x in range(0,(len(sig))):
-
+                # For each control line in this step, set the corresponding ROM bit
+                for x in range(0, len(sig)):
                     if sig[x] in CONTROL_LINES_MAP:
                         cmd_set = CONTROL_LINES_MAP[sig[x]]
-                        #print(f"Command Set {cmd_set}")
-                        #print(f"Rom Number {cmd_set[0]}")
-                        #print(f"Rom Pin {bin(cmd_set[1])[2:].zfill(8)}")
                         if cmd_set[0] == 1:
                             step_byte_r1 |= (1 << cmd_set[1])
                         if cmd_set[0] == 2:
@@ -111,8 +132,7 @@ def populate_rom_data():
                             step_byte_r4 |= (1 << cmd_set[1])
                         if cmd_set[0] == 5:
                             step_byte_r5 |= (1 << cmd_set[1])
-
-
+                # Write the step bytes to the ROM data arrays
                 rom_data[1][rom_addr] = step_byte_r1
                 rom_data[2][rom_addr] = step_byte_r2
                 rom_data[3][rom_addr] = step_byte_r3
@@ -177,6 +197,7 @@ def write_intel_hex_files(output_prefix="PCB_microcode_HEX", line_size=16):
 def write_hex_files(output_prefix="Logisim_microcode_HEX"):
     """
     Write each ROM to a .hex file: one byte per line, upper-case hex.
+    Suitable for Logisim or similar tools.
     """
     for rom_id in ROM_IDS:
         out_path = Path(f"{output_prefix}_{rom_id}.hex")
@@ -186,8 +207,9 @@ def write_hex_files(output_prefix="Logisim_microcode_HEX"):
         print(f"[ok] Wrote {out_path} ({ROM_DEPTH} lines)")
 
 
-populate_rom_data()
-
-write_hex_files()
-write_bin_files()
-write_intel_hex_files()
+if __name__ == "__main__":
+    # Generate microcode and write all output formats
+    populate_rom_data()
+    write_hex_files()
+    write_bin_files()
+    write_intel_hex_files()
