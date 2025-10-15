@@ -1,23 +1,38 @@
+
 #!/usr/bin/env python3
+#
+ # -----------------------------
+# Bandit-16 Assembler
+# -----------------------------
+# Assembles custom assembly language into machine code for the Bandit-16 CPU.
+# Handles labels, instructions, directives, and outputs multiple formats.
+#
+# Author: djh82uk
+#
 import re, sys
 from pathlib import Path
 
-# TO DO 
-# ROR and ROL for rotate
-# ASL for arithmetic shitft Left
-# JSR (push PC to stack, and pull back later)
-# JNC, JN, JO for not carry, negative flag and overflow flag
-# Clear Flags command
-# Interupts?
+# -----------------------------
+# TO DO (Feature Ideas)
+# -----------------------------
+# - ROR and ROL for rotate instructions
+# - ASL for arithmetic shift left
+# - Clear Flags command
+# - Interrupts support
 
-# ---------- Config ----------
 
+# -----------------------------
+# Configuration: Registers, Opcodes, Subops, ASCII, Memory
+# -----------------------------
+
+# Register name to index mapping (aliases supported)
 REGS = {
     "A":0, "B":1, "X":2, "Y":3,
     "R0":0, "R1":1, "R2":2, "R3":3,
 }
 
 OPCODE = {
+    # Mnemonic to opcode mapping (8-bit opcodes)
     "NOP":    0b00000000,
     "MOV":    0b00000001,
     "LD":     0b00000010,
@@ -49,22 +64,30 @@ OPCODE = {
 }
 
 
-SUBOP1 = {"SHL":0b0011, "SHR":0b0100}
-SUBOP2 = {"ADD":0b0001, "SUB":0b0010, "AND":0b0101, "OR":0b0110, "XOR":0b0111}
+# ALU sub-opcodes for single and dual operand instructions
+SUBOP1 = {"SHL":0b0011, "SHR":0b0100}  # Shift left/right
+SUBOP2 = {"ADD":0b0001, "SUB":0b0010, "AND":0b0101, "OR":0b0110, "XOR":0b0111}  # Arithmetic/logic
 
-# Generate full 0–127 ASCII map automatically
+# Generate full 0–127 ASCII map automatically for character literals
 ASCII = {chr(i): i for i in range(128)}
 # Ensure explicit newline mapping
 ASCII["\n"] = 10
 
+# Maximum memory size (words) and default fill value
 MEM_MAX   = 1 << 16
 FILL_WORD = 0x0000
 
 
 
-# ---------- Helpers ----------
+
+# -----------------------------
+# Helper Functions
+# -----------------------------
 
 def parse_int(tok):
+    """
+    Parse a string as an integer (supports hex, bin, decimal, and 'h' suffix).
+    """
     t = tok.strip()
     if t.startswith(("0x","0X")): return int(t,16)
     if t.startswith(("0b","0B")): return int(t,2)
@@ -73,9 +96,15 @@ def parse_int(tok):
     return int(t,10)
 
 def is_label(s):
+    """
+    Check if a string is a valid label.
+    """
     return re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", s) is not None
 
 def parse_expr(expr, labels):
+    """
+    Parse an expression (label, label+offset, or integer).
+    """
     e = expr.strip()
     m = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*([+-])\s*(\S+)", e)
     if m:
@@ -92,6 +121,10 @@ def parse_expr(expr, labels):
     return parse_int(e)
 
 def pack_upper(opcode8, subop4=0, src=0, dest=0):
+    """
+    Pack instruction fields into a 16-bit word.
+    [15:8]=opcode, [7:4]=subop, [3:2]=src, [1:0]=dest
+    """
     """
     16-bit word format:
       [15:8] = 8-bit primary opcode
@@ -111,6 +144,9 @@ def pack_upper(opcode8, subop4=0, src=0, dest=0):
 
 
 def split_operands(op):
+    """
+    Split operands string into a list, handling brackets for memory addressing.
+    """
     parts, cur, depth = [], "", 0
     for ch in op:
         if ch=="[": depth+=1
@@ -122,10 +158,19 @@ def split_operands(op):
     if cur.strip(): parts.append(cur.strip())
     return parts
 
-# ---------- Assembler ----------
+
+# -----------------------------
+# Assembler Class
+# -----------------------------
 
 class Asm:
+    """
+    Main assembler class. Handles parsing, label resolution, and code emission.
+    """
     def __init__(self, text):
+        """
+        Initialize assembler with source text. Prepares for two-pass assembly.
+        """
         user_lines = text.splitlines()
         # Prepend prologue lines so pass1/pass2 treat them like normal source
         self.lines = user_lines
@@ -133,25 +178,40 @@ class Asm:
         self.mem, self.pc, self.errors = {}, 0, []
 
     def err(self, ln, msg):
+        """
+        Record an error with line number.
+        """
         self.errors.append(f"line {ln}: {msg}")
 
     def set_word(self, addr, val):
+        """
+        Set a word in the memory image.
+        """
         if not (0 <= addr < MEM_MAX):
             raise ValueError(f"address out of range: {addr}")
         self.mem[addr] = val & 0xFFFF
 
     def emit_inst(self, upper, lower):
+        """
+        Emit a 32-bit instruction (upper/lower words).
+        """
         self.set_word(self.pc, upper)
         self.set_word(self.pc+1, lower)
         self.pc += 2
 
     def _parse_instr(self, line, ln):
+        """
+        Parse a line into mnemonic and operands.
+        """
         parts = line.strip().split(None,1)
         mnem  = parts[0].upper()
         ops   = split_operands(parts[1]) if len(parts)>1 else []
         return mnem, ops
 
     def instr_length(self, mnem, ops, ln):
+        """
+        Estimate instruction length (words) for pass1 (label address calculation).
+        """
         if mnem=="DISPTXT":
             t = ops[1].strip("[]")
             return len(t)*2
@@ -177,6 +237,9 @@ class Asm:
         return 1
 
     def pass1(self):
+        """
+        First pass: resolve labels and calculate addresses.
+        """
         pc, i = 0, 0
         while i < len(self.lines):
             ln = i+1
@@ -246,6 +309,9 @@ class Asm:
         self.pc = pc
 
     def pass2(self):
+        """
+        Second pass: emit code and resolve addresses.
+        """
         self.pc, i = 0, 0        
 
         while i < len(self.lines):
@@ -313,6 +379,9 @@ class Asm:
 
 
     def encode_instruction(self, ln, line):
+        """
+        Encode a single instruction line (mnemonic and operands).
+        """
         parts = line.split(None, 1)
         mnem  = parts[0].upper()
         ops   = split_operands(parts[1]) if len(parts) > 1 else []
@@ -655,12 +724,18 @@ class Asm:
         raise ValueError(f"unknown mnemonic '{mnem}'")
 
     def parse_reg(self, tok):
+        """
+        Parse a register name (with alias support).
+        """
         t = tok.strip().upper()
         if t not in REGS:
             raise ValueError(f"unknown register '{tok}'")
         return REGS[t]
 
     def write_words_hex(self, path):
+        """
+        Write memory image as hex words (one per line).
+        """
         max_addr = max(self.mem.keys()) if self.mem else -1
         with open(path, "w") as f:
             for addr in range(max_addr + 1):
@@ -668,7 +743,7 @@ class Asm:
 
 def write_bin_image(asm, path_prefix):
     """
-    Write raw binary image: each assembler memory word becomes two bytes (LSB, MSB).
+    Write memory image as raw binary (LSB, MSB per word).
     Output file: {path_prefix}.bin
     """
     max_addr = max(asm.mem.keys()) if asm.mem else -1
@@ -684,7 +759,7 @@ def write_bin_image(asm, path_prefix):
 
 def _intel_hex_record_byteaddr(addr, data_bytes):
     """
-    Build Intel HEX data record for byte address 'addr' and iterable of data bytes.
+    Build a single Intel HEX data record for a chunk of bytes.
     Returns record string with trailing newline.
     """
     length = len(data_bytes)
@@ -698,7 +773,7 @@ def _intel_hex_record_byteaddr(addr, data_bytes):
 
 def write_intel_hex_image(asm, path_prefix, line_size=16):
     """
-    Write Intel HEX file where the assembler memory is emitted as bytes (LSB,MSB per word).
+    Write memory image as Intel HEX file (for ROM programmers, etc).
     Output file: {path_prefix}.ihex
     """
     max_addr = max(asm.mem.keys()) if asm.mem else -1
@@ -719,6 +794,10 @@ def write_intel_hex_image(asm, path_prefix, line_size=16):
     print(f"[ok] Wrote {out_path} ({len(byte_array)} bytes)")
 
 def assemble_file(user_in_path, out_path):
+    """
+    Assemble a file (main entry point for CLI).
+    Reads boot.asm, combines with user file, runs two-pass assembly, and writes output files.
+    """
     # Read boot.asm first
     boot_text = Path("boot.asm").read_text(encoding="utf-8")
     user_text = Path(user_in_path).read_text(encoding="utf-8")
@@ -746,6 +825,9 @@ def assemble_file(user_in_path, out_path):
 
 
 
+    # -----------------------------
+# Command-line entry point
+# -----------------------------
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: assembler.py input.asm output.hex")
