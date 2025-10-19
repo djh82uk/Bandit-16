@@ -1,3 +1,4 @@
+.org 0x03E8
 ; Basic Adder - enter a number between 0-9 and then enter a 2nd number between 0-9 (don't press enter), result is pushed to the output.  Seems super basic (and it is) but it has to translate numbers to and from ASCII
 
 LDI B, 48

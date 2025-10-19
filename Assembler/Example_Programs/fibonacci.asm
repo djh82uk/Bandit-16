@@ -1,3 +1,4 @@
+.org 0x03E8
 ; Find all Fibonacci number upto the number put in line 5.  Line 5 must be a valid fibonacci number
 
 ; preload registers

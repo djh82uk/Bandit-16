@@ -1,3 +1,4 @@
+.org 0x03E8
 ; count to 280 in 298 Bytes
 
 ; Initialise count as zero in 298 Bytes
