@@ -4,6 +4,8 @@ LDI A, 0x0000
 DISPTXT A, <<BOOT_MSG, [0x0004]
 Bandit-16 OS 64K
 Stack Initialised at 0xFFFF
+ISR Initialised at 0xFE00
 READY
 >
 BOOT_MSG
+JMP 0x03E8

@@ -1,0 +1,7 @@
+.org 0xFE00
+PUSH A
+PUSH B
+PUSH X
+PUSH Y
+FPUSH
+

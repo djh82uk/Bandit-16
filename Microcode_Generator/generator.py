@@ -18,7 +18,7 @@ from pathlib import Path
 CONTROL_LINES_MAP = {
     # ROM 1
     "CE": (1, 0), "CO": (1, 1), "MI": (1, 2), "RAO": (1, 3),
-    "RAI": (1, 4), "ROO": (1, 5), "CDO": (1, 6), "HLT": (1, 7),
+    "RAI": (1, 4), "ROO": (1, 5), "NC1": (1, 6), "HLT": (1, 7),
     # ROM 2
     "RegOut": (2, 0), "RegIn": (2, 1), "IIL": (2, 2), "IIH": (2, 3),
     "IOL": (2, 4), "IOH": (2, 5), "IOO": (2, 6), "IOI": (2, 7),
@@ -29,8 +29,8 @@ CONTROL_LINES_MAP = {
     "ALUOP1": (4, 0), "ALUOP2": (4, 1), "JNI": (4, 2), "SPIn": (4, 3),
     "SPDOut": (4, 4), "SPAOut": (4, 5), "SPINC": (4, 6), "SPDEC": (4, 7),
     # ROM 5
-    "JN": (5, 0), "JO": (5, 1), "NC1": (5, 2), "NC2": (5, 3),
-    "NC3": (5, 4), "NC4": (5, 5), "NC5": (5, 6), "NC6": (5, 7),
+    "JN": (5, 0), "JO": (5, 1), "FO": (5, 2), "FSI": (5, 3),
+    "INTC": (5, 4), "JMPI": (5, 5), "BSW": (5, 6), "NC6": (5, 7),
 }
 
 
@@ -40,40 +40,38 @@ CONTROL_LINES_MAP = {
 # -----------------------------
 # Each instruction mnemonic maps to (opcode, step1, step2, ..., step16)
 INSTRUCTIONS = {
-    "NOP": (0b00000000, "CO,MI","ROO, IIH, CE", "EndCmd","","","","","","","","","","","","",""),
-    "MOV": (0b00000001, "CO,MI","ROO, IIH, CE", "RegOut, RegIn","EndCmd","","","","","","","","","","","",""),
-    "LD":  (0b00000010, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, MI","RegIn, RAO","EndCmd","","","","","","","","",""),
-    "ST":  (0b00000011, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, MI","RegOut, RAI","EndCmd","","","","","","","","",""),
-    "LDI": (0b00000100, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, RegIn","EndCmd","","","","","","","","","",""),
-    "ALU": (0b00000101, "CO,MI","ROO, IIH, CE","RegIn, ALURO","FI","EndCmd","","","","","","","","","","",""),
-    # "SUB": (0b000000101, "CO,MI","ROO, IIH, CE","SUB, RegIn, ALURO","FI","EndCmd","","","","","","","","","","",""),
-    # "SHL": (0b000000101, "CO,MI","ROO, IIH, CE","SHL, RegIn, ALURO","EndCmd","","","","","","","","","","","",""),
-    # "SHR": (0b000000101, "CO,MI","ROO, IIH, CE","SHR, RegIn, ALURO","EndCmd","","","","","","","","","","","",""),
-    # "AND": (0b000000101, "CO,MI","ROO, IIH, CE","AND, RegIn, ALURO","FI","EndCmd","","","","","","","","","","",""),
-    # "OR":  (0b000000101, "CO,MI","ROO, IIH, CE","OR, RegIn, ALURO","FI","EndCmd","","","","","","","","","","",""),
-    # "XOR": (0b000000101, "CO,MI","ROO, IIH, CE","XOR, RegIn, ALURO","FI","EndCmd","","","","","","","","","","",""),
-    "JMP": (0b00000110, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JMP","EndCmd","","","","","","","","","",""),
-    "JZ":  (0b00000111, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JZ","EndCmd","","","","","","","","","",""),
-    "JNZ": (0b00001000, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JNZ","EndCmd","","","","","","","","","",""),
-    "JC":  (0b00001001, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JC","EndCmd","","","","","","","","","",""),
-    "JNI": (0b00001010, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JNI","EndCmd","","","","","","","","","",""),
-    "IOO": (0b00001011, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, IOO, RegOut","EndCmd","","","","","","","","","",""),
-    "IOI": (0b00001110, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, IOI, RegIn","FI","EndCmd","","","","","","","","",""),
-    "HLT": (0b00001111, "CO,MI","ROO, IIH, CE","HLT","","","","","","","","","","","","",""),
-    "ALULD1": (0b00010000, "CO,MI","ROO, IIH, CE","RegOut, ALUOP1","EndCmd","","","","","","","","","","","",""),
-    "ALULD2": (0b00010001, "CO,MI","ROO, IIH, CE","RegOut, ALUOP2","EndCmd","","","","","","","","","","","",""),
-    "CMP": (0b00010010, "CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","","",""),
-    "SPIN": (0b00010011, "CO,MI","ROO, IIH, CE","RegOut, SPIn","EndCmd","","","","","","","","","","","",""),
-    "SPDOUT": (0b00010100, "CO,MI","ROO, IIH, CE","RegIn, SPDOut","EndCmd","","","","","","","","","","","",""),
-    "SPAPOP": (0b00010101, "CO,MI","ROO, IIH, CE","SPINC","MI, SPAOut","RegIn, RAO","EndCmd","","","","","","","","","",""),
-    "SPAPUSH": (0b00010110, "CO,MI","ROO, IIH, CE","MI, SPAOut","RegOut, RAI","SPDEC","EndCmd","","","","","","","","","",""),
-    "SPINC": (0b00010111, "CO,MI","ROO, IIH, CE","SPINC","EndCmd","","","","","","","","","","","",""),
-    "SPDEC": (0b00011000, "CO,MI","ROO, IIH, CE","SPDEC","EndCmd","","","","","","","","","","","",""),
-    "FI": (0b00011001, "CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","","",""),
-    "LDCO": (0b00011010, "CO,MI","ROO, IIH, CE","CDO, RegIn","EndCmd","","","","","","","","","","","",""),
-    "JMPR": (0b00011011, "CO,MI","ROO, IIH, CE","RegOut, IIL","IOL, JMP","EndCmd","","","","","","","","","","",""),
-    "JN": (0b00011100, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JN","EndCmd","","","","","","","","","",""),
-    "JO":  (0b00011101, "CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JO","EndCmd","","","","","","","","","","")
+    "NOP": (0b00000000, "INTC","CO,MI","ROO, IIH, CE", "EndCmd","","","","","","","","","","","",""),
+    "MOV": (0b00000001, "INTC","CO,MI","ROO, IIH, CE", "RegOut, RegIn","EndCmd","","","","","","","","","","","",""),
+    "LD":  (0b00000010, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, MI","RegIn, RAO","EndCmd","","","","","","","",""),
+    "ST":  (0b00000011, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, MI","RegOut, RAI","EndCmd","","","","","","","",""),
+    "LDI": (0b00000100, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, RegIn","EndCmd","","","","","","","","",""),
+    "ALU": (0b00000101, "INTC","CO,MI","ROO, IIH, CE","RegIn, ALURO","FI","EndCmd","","","","","","","","","",""),
+    "JMP": (0b00000110, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JMP","EndCmd","","","","","","","","",""),
+    "JZ":  (0b00000111, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JZ","EndCmd","","","","","","","","",""),
+    "JNZ": (0b00001000, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JNZ","EndCmd","","","","","","","","",""),
+    "JC":  (0b00001001, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JC","EndCmd","","","","","","","","",""),
+    "JNI": (0b00001010, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JNI","EndCmd","","","","","","","","",""),
+    "IOO": (0b00001011, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, IOO, RegOut","EndCmd","","","","","","","","",""),
+    "IOI": (0b00001110, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOLA, IOI, RegIn","FI","EndCmd","","","","","","","",""),
+    "HLT": (0b00001111, "INTC","CO,MI","ROO, IIH, CE","HLT","","","","","","","","","","","",""),
+    "ALULD1": (0b00010000, "INTC","CO,MI","ROO, IIH, CE","RegOut, ALUOP1","EndCmd","","","","","","","","","","",""),
+    "ALULD2": (0b00010001, "INTC","CO,MI","ROO, IIH, CE","RegOut, ALUOP2","EndCmd","","","","","","","","","","",""),
+    "CMP": (0b00010010, "INTC","CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","",""),
+    "SPIN": (0b00010011, "INTC","CO,MI","ROO, IIH, CE","RegOut, SPIn","EndCmd","","","","","","","","","","",""),
+    "SPDOUT": (0b00010100, "INTC","CO,MI","ROO, IIH, CE","RegIn, SPDOut","EndCmd","","","","","","","","","","",""),
+    "SPAPOP": (0b00010101, "INTC","CO,MI","ROO, IIH, CE","SPINC","MI, SPAOut","RegIn, RAO","EndCmd","","","","","","","","",""),
+    "SPAPUSH": (0b00010110, "INTC","CO,MI","ROO, IIH, CE","MI, SPAOut","RegOut, RAI","SPDEC","EndCmd","","","","","","","","",""),
+    "SPINC": (0b00010111, "INTC","CO,MI","ROO, IIH, CE","SPINC","EndCmd","","","","","","","","","","",""),
+    "SPDEC": (0b00011000, "INTC","CO,MI","ROO, IIH, CE","SPDEC","EndCmd","","","","","","","","","","",""),
+    "FI": (0b00011001, "INTC","CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","",""),
+    #"LDCO": (0b00011010, "INTC","CO,MI","ROO, IIH","CDO","CE","EndCmd","","","","","","","","","",""),
+    "JMPR": (0b00011011, "INTC","CO,MI","ROO, IIH, CE","RegOut, IIL","IOL, JMP","EndCmd","","","","","","","","","",""),
+    "JN": (0b00011100, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JN","EndCmd","","","","","","","","",""),
+    "JO":  (0b00011101, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JO","EndCmd","","","","","","","","",""),
+    "FPUSH": (0b00011110, "INTC","CO,MI","ROO, IIH, CE","MI, SPAOut","FO, RAI","SPDEC","EndCmd","","","","","","","","",""),
+    "FPOP":  (0b00011111, "INTC","CO,MI","ROO, IIH, CE","SPINC","MI, SPAOut","FSI, RAO","EndCmd","","","","","","","","",""),
+    "JMPI":  (0b00100000, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","JMPI","EndCmd","","","","","","","","",""),
+    "BSW":  (0b00100001, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, BSW","EndCmd","","","","","","","","","")
 
 }
 

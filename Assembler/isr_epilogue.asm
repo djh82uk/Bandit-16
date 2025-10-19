@@ -1,0 +1,6 @@
+FPOP
+POP Y
+POP X
+POP B
+POP A
+JMPI
