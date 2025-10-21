@@ -1,38 +1,21 @@
-
 #!/usr/bin/env python3
-#
- # -----------------------------
-# Bandit-16 Assembler
-# -----------------------------
-# Assembles custom assembly language into machine code for the Bandit-16 CPU.
-# Handles labels, instructions, directives, and outputs multiple formats.
-#
-# Author: djh82uk
-#
 import re, sys
 from pathlib import Path
 
-# -----------------------------
-# TO DO (Feature Ideas)
-# -----------------------------
-# - ROR and ROL for rotate instructions
-# - ASL for arithmetic shift left
-# - Clear Flags command
-# - Interrupts support
+# TO DO 
+# ROR and ROL for rotate
+# ASL for arithmetic shitft Left
+# Clear Flags command
+# Interupts?
 
+# ---------- Config ----------
 
-# -----------------------------
-# Configuration: Registers, Opcodes, Subops, ASCII, Memory
-# -----------------------------
-
-# Register name to index mapping (aliases supported)
 REGS = {
     "A":0, "B":1, "X":2, "Y":3,
     "R0":0, "R1":1, "R2":2, "R3":3,
 }
 
 OPCODE = {
-    # Mnemonic to opcode mapping (8-bit opcodes)
     "NOP":    0b00000000,
     "MOV":    0b00000001,
     "LD":     0b00000010,
@@ -56,38 +39,34 @@ OPCODE = {
     "SPAPUSH": 0b00010110,
     "SPINC":  0b00010111,
     "SPDEC":  0b00011000,
-    "FI":     0b00011001, 
-    "LDCO":   0b00011010,  
+    "FI":     0b00011001,  
     "JMPR":   0b00011011,
     "JN":     0b00011100,
     "JO":     0b00011101,
+    "FPUSH":  0b00011110,
+    "FPOP":   0b00011111,
+    "JMPI":   0b00100000,
+    "BSW":    0b00100001,
 }
 
 
-# ALU sub-opcodes for single and dual operand instructions
-SUBOP1 = {"SHL":0b0011, "SHR":0b0100}  # Shift left/right
-SUBOP2 = {"ADD":0b0001, "SUB":0b0010, "AND":0b0101, "OR":0b0110, "XOR":0b0111}  # Arithmetic/logic
 
-# Generate full 0–127 ASCII map automatically for character literals
+SUBOP1 = {"SHL":0b0011, "SHR":0b0100}
+SUBOP2 = {"ADD":0b0001, "SUB":0b0010, "AND":0b0101, "OR":0b0110, "XOR":0b0111}
+
+# Generate full 0–127 ASCII map automatically
 ASCII = {chr(i): i for i in range(128)}
 # Ensure explicit newline mapping
 ASCII["\n"] = 10
 
-# Maximum memory size (words) and default fill value
 MEM_MAX   = 1 << 16
 FILL_WORD = 0x0000
 
 
 
-
-# -----------------------------
-# Helper Functions
-# -----------------------------
+# ---------- Helpers ----------
 
 def parse_int(tok):
-    """
-    Parse a string as an integer (supports hex, bin, decimal, and 'h' suffix).
-    """
     t = tok.strip()
     if t.startswith(("0x","0X")): return int(t,16)
     if t.startswith(("0b","0B")): return int(t,2)
@@ -96,15 +75,9 @@ def parse_int(tok):
     return int(t,10)
 
 def is_label(s):
-    """
-    Check if a string is a valid label.
-    """
     return re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", s) is not None
 
 def parse_expr(expr, labels):
-    """
-    Parse an expression (label, label+offset, or integer).
-    """
     e = expr.strip()
     m = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*([+-])\s*(\S+)", e)
     if m:
@@ -121,10 +94,6 @@ def parse_expr(expr, labels):
     return parse_int(e)
 
 def pack_upper(opcode8, subop4=0, src=0, dest=0):
-    """
-    Pack instruction fields into a 16-bit word.
-    [15:8]=opcode, [7:4]=subop, [3:2]=src, [1:0]=dest
-    """
     """
     16-bit word format:
       [15:8] = 8-bit primary opcode
@@ -144,9 +113,6 @@ def pack_upper(opcode8, subop4=0, src=0, dest=0):
 
 
 def split_operands(op):
-    """
-    Split operands string into a list, handling brackets for memory addressing.
-    """
     parts, cur, depth = [], "", 0
     for ch in op:
         if ch=="[": depth+=1
@@ -158,19 +124,10 @@ def split_operands(op):
     if cur.strip(): parts.append(cur.strip())
     return parts
 
-
-# -----------------------------
-# Assembler Class
-# -----------------------------
+# ---------- Assembler ----------
 
 class Asm:
-    """
-    Main assembler class. Handles parsing, label resolution, and code emission.
-    """
     def __init__(self, text):
-        """
-        Initialize assembler with source text. Prepares for two-pass assembly.
-        """
         user_lines = text.splitlines()
         # Prepend prologue lines so pass1/pass2 treat them like normal source
         self.lines = user_lines
@@ -178,68 +135,73 @@ class Asm:
         self.mem, self.pc, self.errors = {}, 0, []
 
     def err(self, ln, msg):
-        """
-        Record an error with line number.
-        """
         self.errors.append(f"line {ln}: {msg}")
 
     def set_word(self, addr, val):
-        """
-        Set a word in the memory image.
-        """
         if not (0 <= addr < MEM_MAX):
             raise ValueError(f"address out of range: {addr}")
         self.mem[addr] = val & 0xFFFF
 
     def emit_inst(self, upper, lower):
-        """
-        Emit a 32-bit instruction (upper/lower words).
-        """
         self.set_word(self.pc, upper)
         self.set_word(self.pc+1, lower)
         self.pc += 2
 
     def _parse_instr(self, line, ln):
-        """
-        Parse a line into mnemonic and operands.
-        """
         parts = line.strip().split(None,1)
         mnem  = parts[0].upper()
         ops   = split_operands(parts[1]) if len(parts)>1 else []
         return mnem, ops
 
     def instr_length(self, mnem, ops, ln):
-        """
-        Estimate instruction length (words) for pass1 (label address calculation).
-        """
-        if mnem=="DISPTXT":
+        # Single-instruction ops (2 words)
+        single_2w = {
+            "NOP","HLT","MOV","LD","ST","LDI","IOO","IOI",
+            "JMP","JZ","JNZ","JC","JNI","JN","JO","JMPR","JMPI",
+            "FI","FPOP","FPUSH","BSW","SPIN","PUSH","POP",
+        }
+        if mnem in single_2w:
+            return 2
+
+        # ALU burst macros:
+        # SUBOP1 (e.g., SHL/SHR) expands to 2 instructions -> 4 words
+        if mnem in SUBOP1:
+            return 4
+        # SUBOP2 (ADD/SUB/AND/OR/XOR) expands to 3 instructions -> 6 words
+        if mnem in SUBOP2:
+            return 6
+
+        # CMP macro is 3 instructions -> 6 words
+        if mnem == "CMP":
+            return 6
+
+        # INC/DEC families: each expands to 6 instructions -> 12 words
+        if mnem in {"INCA","DECA","INCB","DECB","INCX","DECX","INCY","DECY"}:
+            return 12
+
+        # CMPMEM* families: each is 6 instructions -> 12 words
+        if mnem in {"CMPMEMA","CMPMEMB","CMPMEMX","CMPMEMY"}:
+            return 12
+
+        # JSR macro: 3 instructions -> 6 words
+        if mnem == "JSR":
+            return 6
+        # RET macro: 2 instructions -> 4 words
+        if mnem == "RET":
+            return 4
+
+        # DISPTXT single-line: already fixed to 4 words per char
+        if mnem == "DISPTXT":
             t = ops[1].strip("[]")
-            return len(t)*2
-        if mnem in SUBOP1: return 2
-        if mnem in SUBOP2: return 3
-        if mnem=="INCX": return 6
-        if mnem=="DECX": return 6
-        if mnem=="INCY": return 6
-        if mnem=="DECY": return 6
-        if mnem=="INCA": return 6
-        if mnem=="DECA": return 6
-        if mnem=="INCB": return 6
-        if mnem=="DECB": return 6
-        if mnem=="CMP": return 3
-        if mnem=="CMPMEMA": return 6
-        if mnem=="CMPMEMB": return 6
-        if mnem=="CMPMEMX": return 6
-        if mnem=="CMPMEMY": return 6
-        if mnem == "JSR": return 3   # push return addr + jump
-        if mnem == "RET": return 2   # pop return addr + jump
+            return len(t) * 4
+
+        # Default: assume single-instruction -> 2 words
+        return 2
 
 
         return 1
 
     def pass1(self):
-        """
-        First pass: resolve labels and calculate addresses.
-        """
         pc, i = 0, 0
         while i < len(self.lines):
             ln = i+1
@@ -259,12 +221,13 @@ class Asm:
                 i+=1; continue
 
             if line.lower().startswith(".org"):
-                try:
-                    arg = line.split(None,1)[1]
-                    pc  = parse_int(arg)
-                except Exception as e:
-                    self.err(ln, f".org parse error: {e}")
-                i+=1; continue
+                arg = line.split(None,1)[1]
+                new_pc = parse_int(arg)
+                # Just move the counter; no need to call set_word in pass1
+                pc = new_pc
+                i += 1
+                continue
+
 
             if line.lower().startswith(".word"):
                 try:
@@ -297,7 +260,7 @@ class Asm:
                 indents = [len(l) - len(l.lstrip()) for l in lines if l.strip()]
                 common = min(indents) if indents else 0
                 text = "\n".join(line[common:] for line in lines)
-                pc  += len(text)*2
+                pc  += len(text)*4
                 i+=1
                 continue
 
@@ -309,9 +272,6 @@ class Asm:
         self.pc = pc
 
     def pass2(self):
-        """
-        Second pass: emit code and resolve addresses.
-        """
         self.pc, i = 0, 0        
 
         while i < len(self.lines):
@@ -327,8 +287,15 @@ class Asm:
 
             if line.lower().startswith(".org"):
                 arg = line.split(None,1)[1]
-                self.pc = parse_int(arg)
-                i+=1; continue
+                new_pc = parse_int(arg) & 0xFFFF
+
+                # Do not forward-fill. Just set pc.
+                self.pc = new_pc
+
+                i += 1
+                continue
+
+
 
             if line.lower().startswith(".word"):
                 args = line.split(None,1)[1]
@@ -379,9 +346,6 @@ class Asm:
 
 
     def encode_instruction(self, ln, line):
-        """
-        Encode a single instruction line (mnemonic and operands).
-        """
         parts = line.split(None, 1)
         mnem  = parts[0].upper()
         ops   = split_operands(parts[1]) if len(parts) > 1 else []
@@ -401,20 +365,27 @@ class Asm:
             d = self.parse_reg(ops[0]); s = self.parse_reg(ops[1])
             self.emit_inst(pack_upper(OPCODE["MOV"], 0, s, d), 0)
             return
-        
-        # LDCO dest (Needs CO to D Bus)
-        if mnem == "LDCO":
-            if len(ops) != 1:
-                raise ValueError("LDCO expects: LDCO dest")
-            d = self.parse_reg(ops[0])
-            self.emit_inst(pack_upper(OPCODE["LDCO"], 0, 0, d), 0)
-            return
+
         
         # FI
         if mnem == "FI":
             if len(ops) != 0:
                 raise ValueError("FI expects: Nothing")
             self.emit_inst(pack_upper(OPCODE["FI"], 0, 0, 0), 0)
+            return
+        
+        # FPOP
+        if mnem == "FPOP":
+            if len(ops) != 0:
+                raise ValueError("FPOP expects: Nothing")
+            self.emit_inst(pack_upper(OPCODE["FPOP"], 0, 0, 0), 0)
+            return
+        
+        # FPUSH
+        if mnem == "FPUSH":
+            if len(ops) != 0:
+                raise ValueError("FPUSH expects: Nothing")
+            self.emit_inst(pack_upper(OPCODE["FPUSH"], 0, 0, 0), 0)
             return
         
         # LDI dest, imm
@@ -430,10 +401,30 @@ class Asm:
                 imm = ASCII.get(ch[0], ord(ch[0])) & 0xFFFF
                 self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, d), imm)
                 return
+        
 
             # Otherwise parse as numeric expression (labels, hex, bin, decimal)
             imm = parse_expr(ops[1].strip(), self.labels) & 0xFFFF
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, d), imm)
+            return
+        
+
+        
+        # BSW RAM/ROM
+        if mnem == "BSW":
+            if len(ops) != 1:
+                raise ValueError("BSW expects: BSW RAM|ROM")
+
+            arg = ops[0].strip().upper()
+            if arg == "RAM":
+                imm = 0x0001
+            elif arg == "ROM":
+                imm = 0x0000
+            else:
+                raise ValueError(f"BSW expects RAM or ROM, got {ops[0]}")
+
+            # No destination register, just emit opcode + imm
+            self.emit_inst(pack_upper(OPCODE["BSW"], 0, 0, 0), imm)
             return
 
 
@@ -661,16 +652,23 @@ class Asm:
             if len(ops) != 1:
                 raise ValueError(f"{mnem} expects: {mnem} addr")
             waddr = parse_expr(ops[0], self.labels)
-            baddr = (waddr * 2) & 0xFFFF
-            self.emit_inst(pack_upper(OPCODE[mnem]), baddr)
+            #baddr = (waddr * 2) & 0xFFFF
+            self.emit_inst(pack_upper(OPCODE[mnem]), waddr)
             return
         
         # JMPR
         if mnem == "JMPR":
             if len(ops) != 1:
-                raise ValueError("JUPR expects: JMPR src")  
+                raise ValueError("JMPR expects: JMPR src")  
             s = self.parse_reg(ops[0])            
             self.emit_inst(pack_upper(OPCODE["JMPR"], 0, s, 0), 0)   
+            return
+        
+        # JMPI
+        if mnem == "JMPI":
+            if len(ops) != 0:
+                raise ValueError("JMPI expects: Nothing")            
+            self.emit_inst(pack_upper(OPCODE["JMPI"], 0, 0, 0), 0)   
             return
         
    
@@ -683,12 +681,12 @@ class Asm:
             target_byte = (target_word * 2) & 0xFFFF
 
             # Return address (byte) after this JSR macro (3 instructions = 12 bytes)
-            ret_word = (self.pc + 6) & 0xFFFF
+            ret_byte = ((self.pc + 6) * 2) & 0xFFFF
 
 
 
             # 1) LDI Y, ret_word
-            self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), ret_word)
+            self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), ret_byte)
             # 2) PUSH Y
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
             # 3) JMP target_byte
@@ -724,42 +722,33 @@ class Asm:
         raise ValueError(f"unknown mnemonic '{mnem}'")
 
     def parse_reg(self, tok):
-        """
-        Parse a register name (with alias support).
-        """
         t = tok.strip().upper()
         if t not in REGS:
             raise ValueError(f"unknown register '{tok}'")
         return REGS[t]
 
     def write_words_hex(self, path):
-        """
-        Write memory image as hex words (one per line).
-        """
-        max_addr = max(self.mem.keys()) if self.mem else -1
         with open(path, "w") as f:
-            for addr in range(max_addr + 1):
+            for addr in range(MEM_MAX):
                 f.write(f"{self.mem.get(addr, FILL_WORD):04X}\n")
 
+
+
 def write_bin_image(asm, path_prefix):
-    """
-    Write memory image as raw binary (LSB, MSB per word).
-    Output file: {path_prefix}.bin
-    """
-    max_addr = max(asm.mem.keys()) if asm.mem else -1
-    size_words = max_addr + 1
     out_path = Path(f"{path_prefix}_rom.bin")
     with out_path.open("wb") as f:
-        for addr in range(size_words):
+        for addr in range(MEM_MAX):
             word = asm.mem.get(addr, FILL_WORD) & 0xFFFF
             lo = word & 0xFF
             hi = (word >> 8) & 0xFF
             f.write(bytes((lo, hi)))
-    print(f"[ok] Wrote {out_path} ({size_words*2} bytes)")
+    print(f"[ok] Wrote {out_path} ({MEM_MAX*2} bytes)")
+
+
 
 def _intel_hex_record_byteaddr(addr, data_bytes):
     """
-    Build a single Intel HEX data record for a chunk of bytes.
+    Build Intel HEX data record for byte address 'addr' and iterable of data bytes.
     Returns record string with trailing newline.
     """
     length = len(data_bytes)
@@ -773,11 +762,10 @@ def _intel_hex_record_byteaddr(addr, data_bytes):
 
 def write_intel_hex_image(asm, path_prefix, line_size=16):
     """
-    Write memory image as Intel HEX file (for ROM programmers, etc).
+    Write Intel HEX file where the assembler memory is emitted as bytes (LSB,MSB per word).
     Output file: {path_prefix}.ihex
     """
-    max_addr = max(asm.mem.keys()) if asm.mem else -1
-    size_words = max_addr + 1
+    size_words = MEM_MAX
     # build flat byte array
     byte_array = bytearray()
     for addr in range(size_words):
@@ -794,16 +782,13 @@ def write_intel_hex_image(asm, path_prefix, line_size=16):
     print(f"[ok] Wrote {out_path} ({len(byte_array)} bytes)")
 
 def assemble_file(user_in_path, out_path):
-    """
-    Assemble a file (main entry point for CLI).
-    Reads boot.asm, combines with user file, runs two-pass assembly, and writes output files.
-    """
-    # Read boot.asm first
     boot_text = Path("boot.asm").read_text(encoding="utf-8")
     user_text = Path(user_in_path).read_text(encoding="utf-8")
+    prologue_text = Path("isr_prologue.asm").read_text(encoding="utf-8")
+    epilogue_text = Path("isr_epilogue.asm").read_text(encoding="utf-8")
 
-    # Combine the two source files in sequence
-    combined_text = boot_text + "\n" + user_text
+    # Combine: boot, user, then ISR scaffold
+    combined_text = boot_text + "\n" + prologue_text + "\n" + user_text + "\n" + epilogue_text
 
     a = Asm(combined_text)
     a.pass1()   # pass1 sees both files in order
@@ -825,9 +810,6 @@ def assemble_file(user_in_path, out_path):
 
 
 
-    # -----------------------------
-# Command-line entry point
-# -----------------------------
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: assembler.py input.asm output.hex")

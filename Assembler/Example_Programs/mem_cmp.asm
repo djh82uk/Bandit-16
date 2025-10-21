@@ -1,3 +1,4 @@
+.org 0x03E8
 ; load value to be place din RAM
 LDI X, 1337
 ; load value to be compared with RAM value
