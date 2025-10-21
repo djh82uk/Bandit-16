@@ -15,6 +15,15 @@ A 16-bit Computer CPU based on a custom ISA, it has a 16-bit Address bus and a 1
 - Control Unit with 5 Microcode-Roms (32K x 8 bits, can add additional roms easily for more control lines)  
 - Single Interrupt with Interupt Register (16-bit) and Interrupt Flag Register (1-bit)
 
+
+## Logisim:
+
+<img src="Images/Logisim_Bandit16.png" alt="Diagram" width="1000">
+
+
+
+
+
 ## Directly Accessible Control Lines:
 | **Control Line** | **Push/Pull**     | **Description**                                                                                                                                                                                           | **Microcode ROM** | **Microcode ROM PIN** |
 |------------------|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------|-----------------------|
