@@ -154,26 +154,49 @@ class Asm:
         return mnem, ops
 
     def instr_length(self, mnem, ops, ln):
-        if mnem=="DISPTXT":
+        # Single-instruction ops (2 words)
+        single_2w = {
+            "NOP","HLT","MOV","LD","ST","LDI","IOO","IOI",
+            "JMP","JZ","JNZ","JC","JNI","JN","JO","JMPR","JMPI",
+            "FI","FPOP","FPUSH","BSW","SPIN","PUSH","POP",
+        }
+        if mnem in single_2w:
+            return 2
+
+        # ALU burst macros:
+        # SUBOP1 (e.g., SHL/SHR) expands to 2 instructions -> 4 words
+        if mnem in SUBOP1:
+            return 4
+        # SUBOP2 (ADD/SUB/AND/OR/XOR) expands to 3 instructions -> 6 words
+        if mnem in SUBOP2:
+            return 6
+
+        # CMP macro is 3 instructions -> 6 words
+        if mnem == "CMP":
+            return 6
+
+        # INC/DEC families: each expands to 6 instructions -> 12 words
+        if mnem in {"INCA","DECA","INCB","DECB","INCX","DECX","INCY","DECY"}:
+            return 12
+
+        # CMPMEM* families: each is 6 instructions -> 12 words
+        if mnem in {"CMPMEMA","CMPMEMB","CMPMEMX","CMPMEMY"}:
+            return 12
+
+        # JSR macro: 3 instructions -> 6 words
+        if mnem == "JSR":
+            return 6
+        # RET macro: 2 instructions -> 4 words
+        if mnem == "RET":
+            return 4
+
+        # DISPTXT single-line: already fixed to 4 words per char
+        if mnem == "DISPTXT":
             t = ops[1].strip("[]")
-            return len(t)*2
-        if mnem in SUBOP1: return 2
-        if mnem in SUBOP2: return 3
-        if mnem=="INCX": return 6
-        if mnem=="DECX": return 6
-        if mnem=="INCY": return 6
-        if mnem=="DECY": return 6
-        if mnem=="INCA": return 6
-        if mnem=="DECA": return 6
-        if mnem=="INCB": return 6
-        if mnem=="DECB": return 6
-        if mnem=="CMP": return 3
-        if mnem=="CMPMEMA": return 6
-        if mnem=="CMPMEMB": return 6
-        if mnem=="CMPMEMX": return 6
-        if mnem=="CMPMEMY": return 6
-        if mnem == "JSR": return 3   # push return addr + jump
-        if mnem == "RET": return 2   # pop return addr + jump
+            return len(t) * 4
+
+        # Default: assume single-instruction -> 2 words
+        return 2
 
 
         return 1
@@ -237,7 +260,7 @@ class Asm:
                 indents = [len(l) - len(l.lstrip()) for l in lines if l.strip()]
                 common = min(indents) if indents else 0
                 text = "\n".join(line[common:] for line in lines)
-                pc  += len(text)*2
+                pc  += len(text)*4
                 i+=1
                 continue
 
@@ -658,12 +681,12 @@ class Asm:
             target_byte = (target_word * 2) & 0xFFFF
 
             # Return address (byte) after this JSR macro (3 instructions = 12 bytes)
-            ret_word = (self.pc + 6) & 0xFFFF
+            ret_byte = ((self.pc + 6) * 2) & 0xFFFF
 
 
 
             # 1) LDI Y, ret_word
-            self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), ret_word)
+            self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), ret_byte)
             # 2) PUSH Y
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
             # 3) JMP target_byte
