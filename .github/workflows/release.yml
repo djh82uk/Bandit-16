@@ -44,9 +44,17 @@ jobs:
           cp Assembler/*.hex artifacts/ || true
           cp Assembler/*.bin artifacts/ || true
 
+      - name: Create artifacts archive
+        run: |
+          cd artifacts
+          zip -r ../Bandit16-artifact-collection.zip *
+          cd ..
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*
+          files: |
+            artifacts/*
+            Bandit16-artifact-collection.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
