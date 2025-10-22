@@ -31,11 +31,17 @@ jobs:
         run: |
           python generator.py
 
+      - name: Run assembler.py
+        working-directory: Assembler
+        run: |
+          python assembler.py test_program.asm test_program.hex
+
       - name: Collect output files
         run: |
           mkdir artifacts
           cp Microcode_Generator/*.bin artifacts/ || true
           cp Microcode_Generator/*.hex artifacts/ || true
+          cp Assembler/*.hex artifacts/ || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
