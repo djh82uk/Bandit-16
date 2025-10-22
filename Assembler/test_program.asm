@@ -185,7 +185,7 @@ Test10:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 9: Mov (1337 -> B -> Y)
+Test 10: Mov (1337 -> B -> Y)
 Result should be 0x0539
 Check the Hex Output 
 Press Enter to Continue
@@ -200,6 +200,36 @@ FI
 JNI INPUT10
 JMP Wait10
 
+
+Test11:
+
+DISPTXT A, <<EOB, [0x0004]
+
+Test 11: FPUSH & FPOP
+Result should be 0x0014
+Check the Hex Output 
+Press Enter to Continue
+
+EOB
+
+LDI A, 60000
+LDI B, 20000
+ADD A, B, X
+FPUSH
+LDI A, 10
+LDI B, 10
+ADD A, B, Y
+FPOP
+JC JCTest
+
+Wait11:
+FI
+JNI INPUT11
+JMP Wait11
+
+JCTest:
+IOO  Y, [0x0002] 
+JMP Wait11
 
 INPUT1:
 
@@ -249,8 +279,12 @@ INPUT9:
 INPUT10:
 
     IOI  Y, [0x0008]  
-    JMP Finish
+    JMP Test11
 
+INPUT11:
+
+    IOI  Y, [0x0008]  
+    JMP Finish
 
 Finish:
 HLT
