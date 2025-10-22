@@ -5,7 +5,7 @@ Test1:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 1: Addition
+Test 1: Addition (5 + 6)
 Result should be 0x000b
 Check the Hex Output 
 Press Enter to Continue
@@ -25,7 +25,7 @@ Test2:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 2: Subtraction
+Test 2: Subtraction (10-6)
 Result should be 0x0004
 Check the Hex Output 
 Press Enter to Continue
@@ -45,7 +45,7 @@ Test3:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 3: Shift Left
+Test 3: Shift Left (10)
 Result should be 0x0014
 Check the Hex Output 
 Press Enter to Continue
@@ -64,7 +64,7 @@ Test4:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 4: Shift Right
+Test 4: Shift Right (10)
 Result should be 0x0005
 Check the Hex Output 
 Press Enter to Continue
@@ -83,7 +83,7 @@ Test5:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 4: AND
+Test 5: AND (100 AND 150)
 Result should be 0x0004
 Check the Hex Output 
 Press Enter to Continue
@@ -103,7 +103,7 @@ Test6:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 4: OR
+Test 6: OR (100 OR 150)
 Result should be 0x00F6
 Check the Hex Output 
 Press Enter to Continue
@@ -124,7 +124,7 @@ Test7:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 4: XOR
+Test 7: XOR (100 XOR 150)
 Result should be 0x00F2
 Check the Hex Output 
 Press Enter to Continue
@@ -145,7 +145,7 @@ Test8:
 
 DISPTXT A, <<EOB, [0x0004]
 
-Test 4: Increment A
+Test 8: Increment A (100 +1)
 Result should be 0x0065
 Check the Hex Output 
 Press Enter to Continue
@@ -159,6 +159,47 @@ Wait8:
 FI
 JNI INPUT8
 JMP Wait8
+
+
+Test9:
+
+DISPTXT A, <<EOB, [0x0004]
+
+Test 9: Decrement B (4000-1)
+Result should be 0x0F9F
+Check the Hex Output 
+Press Enter to Continue
+
+EOB
+
+LDI B, 4000
+DECB
+IOO  B, [0x0002] 
+Wait9:
+FI
+JNI INPUT9
+JMP Wait9
+
+
+Test10:
+
+DISPTXT A, <<EOB, [0x0004]
+
+Test 9: Mov (1337 -> B -> Y)
+Result should be 0x0539
+Check the Hex Output 
+Press Enter to Continue
+
+EOB
+
+LDI B, 1337
+MOV Y, B
+IOO  Y, [0x0002] 
+Wait10:
+FI
+JNI INPUT10
+JMP Wait10
+
 
 INPUT1:
 
@@ -198,7 +239,18 @@ INPUT7:
 INPUT8:
 
     IOI  Y, [0x0008]  
+    JMP Test9
+
+INPUT9:
+
+    IOI  Y, [0x0008]  
+    JMP Test10
+
+INPUT10:
+
+    IOI  Y, [0x0008]  
     JMP Finish
+
 
 Finish:
 HLT
