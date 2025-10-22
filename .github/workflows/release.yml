@@ -42,6 +42,7 @@ jobs:
           cp Microcode_Generator/*.bin artifacts/ || true
           cp Microcode_Generator/*.hex artifacts/ || true
           cp Assembler/*.hex artifacts/ || true
+          cp Assembler/*.bin artifacts/ || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
