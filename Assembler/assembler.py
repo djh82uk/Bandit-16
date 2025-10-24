@@ -772,29 +772,27 @@ class Asm:
             if len(ops) != 1:
                 raise ValueError("JSR expects: JSR label")
 
-            # Target is a label stored as word address; JMP wants byte address
+            # Target is stored/expressed as a word address
             target_word = self.parse_expr(ops[0]) & 0xFFFF
-            target_byte = (target_word * 2) & 0xFFFF
 
-            # Return address (byte) after this JSR macro (3 instructions = 12 bytes)
-            ret_byte = ((self.pc + 6) * 2) & 0xFFFF
-
-
+            # Return word address: current word PC plus the JSR macro length (6 words)
+            # self.pc is the current word-addressed PC; add 6 (JSR expands to 6 words)
+            ret_word = (self.pc + 6) & 0xFFFF
 
             # 1) LDI Y, ret_word
-            self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), ret_byte)
+            self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, 3), ret_word)
             # 2) PUSH Y
             self.emit_inst(pack_upper(OPCODE["SPAPUSH"], 0, 3, 0), 0)
-            # 3) JMP target_byte
-            self.emit_inst(pack_upper(OPCODE["JMP"]), target_byte)
+            # 3) JMP target_word
+            self.emit_inst(pack_upper(OPCODE["JMP"]), target_word)
             return
 
         if mnem == "RET":
             if len(ops) != 0:
                 raise ValueError("RET expects no operands")
-            # 1) POP Y
+            # 1) POP Y (Y receives return word address)
             self.emit_inst(pack_upper(OPCODE["SPAPOP"], 0, 0, 3), 0)
-            # 2) JMPR Y  (JMPR jumps to the byte address in Y)
+            # 2) JMPR Y (JMPR interprets Y as a word address)
             self.emit_inst(pack_upper(OPCODE["JMPR"], 0, 3, 0), 0)
             return
 
