@@ -46,9 +46,9 @@ OPCODE = {
     "FPUSH":  0b00011110,
     "FPOP":   0b00011111,
     "JMPI":   0b00100000,
-    "BSW":    0b00100001,
+    "BSRO":    0b00100001,
+    "BSRA":    0b00100010,
 }
-
 
 
 SUBOP1 = {"SHL":0b0011, "SHR":0b0100}
@@ -132,20 +132,74 @@ class Asm:
         # Prepend prologue lines so pass1/pass2 treat them like normal source
         self.lines = user_lines
         self.labels = {}
-        self.mem, self.pc, self.errors = {}, 0, []
+        self.label_sections = {}  # Track which section each label is in
+        # Separate memory spaces for RAM and ROM
+        self.ram_mem = {}
+        self.rom_mem = {}
+        # Dual program counters for RAM and ROM
+        self.ram_pc = 0
+        self.rom_pc = 0
+        self.pc = 0  # Current PC tracks the active section's PC
+        # Current section tracking
+        self.current_section = "ROM"  # Default to ROM section
+        self.errors = []
 
     def err(self, ln, msg):
-        self.errors.append(f"line {ln}: {msg}")
+        if msg.startswith("Warning:"):
+            if ln is not None:
+                self.errors.append(f"Warning: line {ln}: {msg[8:]}")  # Strip "Warning:" prefix
+            else:
+                self.errors.append(msg)
+        else:
+            if ln is not None:
+                self.errors.append(f"Error: line {ln}: {msg}")
+            else:
+                self.errors.append(f"Error: {msg}")
+
+    def parse_expr(self, expr):
+        e = expr.strip()
+        m = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*([+-])\s*(\S+)", e)
+        if m:
+            lbl, op, num = m.groups()
+            if lbl not in self.labels:
+                raise KeyError(f"unknown label '{lbl}'")
+            base = self.labels[lbl]
+            # Validate cross-section references
+            label_section = self.label_sections.get(lbl)
+            if label_section and label_section != self.current_section:
+                self.err(None, f"Warning: Cross-section reference from {self.current_section} to label '{lbl}' in {label_section}")
+            delta = parse_int(num)
+            return base + delta if op=="+" else base - delta
+        if is_label(e):
+            if e not in self.labels:
+                raise KeyError(f"unknown label '{e}'")
+            # Validate cross-section references
+            label_section = self.label_sections.get(e)
+            if label_section and label_section != self.current_section:
+                self.err(None, f"Warning: Cross-section reference from {self.current_section} to label '{e}' in {label_section}")
+            return self.labels[e]
+        return parse_int(e)
 
     def set_word(self, addr, val):
         if not (0 <= addr < MEM_MAX):
             raise ValueError(f"address out of range: {addr}")
-        self.mem[addr] = val & 0xFFFF
+        val = val & 0xFFFF
+        if self.current_section == "RAM":
+            self.ram_mem[addr] = val
+        else:  # ROM section
+            self.rom_mem[addr] = val
 
     def emit_inst(self, upper, lower):
-        self.set_word(self.pc, upper)
-        self.set_word(self.pc+1, lower)
-        self.pc += 2
+        if self.current_section == "RAM":
+            self.set_word(self.ram_pc, upper)
+            self.set_word(self.ram_pc + 1, lower)
+            self.ram_pc += 2
+            self.pc = self.ram_pc
+        else:  # ROM section
+            self.set_word(self.rom_pc, upper)
+            self.set_word(self.rom_pc + 1, lower)
+            self.rom_pc += 2
+            self.pc = self.rom_pc
 
     def _parse_instr(self, line, ln):
         parts = line.strip().split(None,1)
@@ -218,13 +272,32 @@ class Asm:
                     self.err(ln, f"duplicate label '{lbl}'")
                 else:
                     self.labels[lbl] = pc
+                    self.label_sections[lbl] = self.current_section
                 i+=1; continue
+
+            if line.lower().startswith(".section"):
+                section = line.split(None, 1)[1].strip().upper()
+                if section not in ["RAM", "ROM"]:
+                    self.err(ln, f"Invalid section '{section}'. Must be RAM or ROM")
+                else:
+                    self.current_section = section
+                    # Use appropriate PC for the section
+                    pc = self.ram_pc if section == "RAM" else self.rom_pc
+                i += 1
+                continue
 
             if line.lower().startswith(".org"):
                 arg = line.split(None,1)[1]
-                new_pc = parse_int(arg)
-                # Just move the counter; no need to call set_word in pass1
-                pc = new_pc
+                new_pc = self.parse_expr(arg)
+                # Update the appropriate program counter
+                if self.current_section == "RAM":
+                    self.ram_pc = new_pc
+                    self.pc = new_pc
+                    pc = new_pc
+                else:
+                    self.rom_pc = new_pc
+                    self.pc = new_pc
+                    pc = new_pc
                 i += 1
                 continue
 
@@ -272,7 +345,11 @@ class Asm:
         self.pc = pc
 
     def pass2(self):
-        self.pc, i = 0, 0        
+        pc = 0
+        self.pc = 0
+        self.rom_pc = 0
+        self.ram_pc = 0
+        i = 0
 
         while i < len(self.lines):
             ln = i+1
@@ -285,12 +362,34 @@ class Asm:
             if line.endswith(":"):
                 i+=1; continue
 
+            if line.lower().startswith(".section"):
+                section = line.split(None, 1)[1].strip().upper()
+                if section not in ["RAM", "ROM"]:
+                    self.err(ln, f"Invalid section '{section}'. Must be RAM or ROM")
+                else:
+                    # Update PCs when switching sections
+                    if self.current_section == "RAM":
+                        self.ram_pc = pc
+                    else:
+                        self.rom_pc = pc
+                    self.current_section = section
+                    # Set PC to the current section's PC
+                    pc = self.ram_pc if section == "RAM" else self.rom_pc
+                    self.pc = pc
+                i += 1
+                continue
+
             if line.lower().startswith(".org"):
                 arg = line.split(None,1)[1]
-                new_pc = parse_int(arg) & 0xFFFF
+                new_pc = self.parse_expr(arg)
 
                 # Do not forward-fill. Just set pc.
-                self.pc = new_pc
+                if self.current_section == "RAM":
+                    self.ram_pc = new_pc
+                    self.pc = new_pc
+                else:
+                    self.rom_pc = new_pc
+                    self.pc = new_pc
 
                 i += 1
                 continue
@@ -300,7 +399,7 @@ class Asm:
             if line.lower().startswith(".word"):
                 args = line.split(None,1)[1]
                 for tok in [w.strip() for w in args.split(",")]:
-                    v = parse_expr(tok, self.labels)
+                    v = self.parse_expr(tok)
                     self.set_word(self.pc, v); self.pc+=1
                 i+=1; continue
 
@@ -345,10 +444,18 @@ class Asm:
 
 
 
+    def validate_instruction_section(self, mnem):
+        """Validate if an instruction is allowed in the current section"""
+        # No section-specific validation needed since hardware enforces memory access rules
+        return True
+
     def encode_instruction(self, ln, line):
         parts = line.split(None, 1)
         mnem  = parts[0].upper()
         ops   = split_operands(parts[1]) if len(parts) > 1 else []
+        
+        # Validate instruction placement
+        self.validate_instruction_section(mnem)
 
         # NOP / HLT
         if mnem == "NOP":
@@ -408,25 +515,14 @@ class Asm:
             self.emit_inst(pack_upper(OPCODE["LDI"], 0, 0, d), imm)
             return
         
-
         
-        # BSW RAM/ROM
-        if mnem == "BSW":
+        # BSRO, BSRA
+        if mnem in ("BSRO","BSRA"):
             if len(ops) != 1:
-                raise ValueError("BSW expects: BSW RAM|ROM")
-
-            arg = ops[0].strip().upper()
-            if arg == "RAM":
-                imm = 0x0001
-            elif arg == "ROM":
-                imm = 0x0000
-            else:
-                raise ValueError(f"BSW expects RAM or ROM, got {ops[0]}")
-
-            # No destination register, just emit opcode + imm
-            self.emit_inst(pack_upper(OPCODE["BSW"], 0, 0, 0), imm)
+                raise ValueError(f"{mnem} expects: {mnem} addr")
+            waddr = parse_expr(ops[0], self.labels)
+            self.emit_inst(pack_upper(OPCODE[mnem]), waddr)
             return
-
 
 
         # LD / ST / IOO / IOI
@@ -434,7 +530,7 @@ class Asm:
             if len(ops) != 2 or not (ops[1].startswith("[") and ops[1].endswith("]")):
                 raise ValueError(f"{mnem} expects: {mnem} reg, [addr]")
             reg = self.parse_reg(ops[0])
-            addr = parse_expr(ops[1][1:-1], self.labels) & 0xFFFF
+            addr = self.parse_expr(ops[1][1:-1]) & 0xFFFF
             if mnem == "LD":
                 self.emit_inst(pack_upper(OPCODE["LD"], 0, 0, reg), addr)
             elif mnem == "ST":
@@ -651,7 +747,7 @@ class Asm:
         if mnem in ("JMP","JZ","JNZ","JC","JNI","JN","JO"):
             if len(ops) != 1:
                 raise ValueError(f"{mnem} expects: {mnem} addr")
-            waddr = parse_expr(ops[0], self.labels)
+            waddr = self.parse_expr(ops[0])
             #baddr = (waddr * 2) & 0xFFFF
             self.emit_inst(pack_upper(OPCODE[mnem]), waddr)
             return
@@ -677,7 +773,7 @@ class Asm:
                 raise ValueError("JSR expects: JSR label")
 
             # Target is a label stored as word address; JMP wants byte address
-            target_word = parse_expr(ops[0], self.labels) & 0xFFFF
+            target_word = self.parse_expr(ops[0]) & 0xFFFF
             target_byte = (target_word * 2) & 0xFFFF
 
             # Return address (byte) after this JSR macro (3 instructions = 12 bytes)
@@ -728,21 +824,40 @@ class Asm:
         return REGS[t]
 
     def write_words_hex(self, path):
-        with open(path, "w") as f:
+        # Write ROM file
+        rom_path = path.replace('.hex', '_rom.hex')
+        with open(rom_path, "w") as f:
             for addr in range(MEM_MAX):
-                f.write(f"{self.mem.get(addr, FILL_WORD):04X}\n")
+                f.write(f"{self.rom_mem.get(addr, FILL_WORD):04X}\n")
+        
+        # Write RAM file
+        ram_path = path.replace('.hex', '_ram.hex')
+        with open(ram_path, "w") as f:
+            for addr in range(MEM_MAX):
+                f.write(f"{self.ram_mem.get(addr, FILL_WORD):04X}\n")
 
 
 
 def write_bin_image(asm, path_prefix):
-    out_path = Path(f"{path_prefix}_rom.bin")
-    with out_path.open("wb") as f:
+    # Write ROM binary
+    rom_path = Path(f"{path_prefix}_rom.bin")
+    with rom_path.open("wb") as f:
         for addr in range(MEM_MAX):
-            word = asm.mem.get(addr, FILL_WORD) & 0xFFFF
+            word = asm.rom_mem.get(addr, FILL_WORD) & 0xFFFF
             lo = word & 0xFF
             hi = (word >> 8) & 0xFF
             f.write(bytes((lo, hi)))
-    print(f"[ok] Wrote {out_path} ({MEM_MAX*2} bytes)")
+    print(f"[ok] Wrote {rom_path} ({MEM_MAX*2} bytes)")
+
+    # Write RAM binary
+    ram_path = Path(f"{path_prefix}_ram.bin")
+    with ram_path.open("wb") as f:
+        for addr in range(MEM_MAX):
+            word = asm.ram_mem.get(addr, FILL_WORD) & 0xFFFF
+            lo = word & 0xFF
+            hi = (word >> 8) & 0xFF
+            f.write(bytes((lo, hi)))
+    print(f"[ok] Wrote {ram_path} ({MEM_MAX*2} bytes)")
 
 
 
@@ -762,24 +877,40 @@ def _intel_hex_record_byteaddr(addr, data_bytes):
 
 def write_intel_hex_image(asm, path_prefix, line_size=16):
     """
-    Write Intel HEX file where the assembler memory is emitted as bytes (LSB,MSB per word).
-    Output file: {path_prefix}.ihex
+    Write Intel HEX files where the assembler memory is emitted as bytes (LSB,MSB per word).
+    Separate files for ROM and RAM sections.
     """
     size_words = MEM_MAX
-    # build flat byte array
-    byte_array = bytearray()
+    
+    # Write ROM Intel HEX file
+    rom_byte_array = bytearray()
     for addr in range(size_words):
-        word = asm.mem.get(addr, FILL_WORD) & 0xFFFF
-        byte_array.append(word & 0xFF)        # low byte first
-        byte_array.append((word >> 8) & 0xFF) # high byte
-    out_path = Path(f"{path_prefix}_rom.hex")
-    with out_path.open("w") as f:
-        for base in range(0, len(byte_array), line_size):
-            chunk = byte_array[base:base+line_size]
+        word = asm.rom_mem.get(addr, FILL_WORD) & 0xFFFF
+        rom_byte_array.append(word & 0xFF)        # low byte first
+        rom_byte_array.append((word >> 8) & 0xFF) # high byte
+    rom_path = Path(f"{path_prefix}_rom.ihex")
+    with rom_path.open("w") as f:
+        for base in range(0, len(rom_byte_array), line_size):
+            chunk = rom_byte_array[base:base+line_size]
             f.write(_intel_hex_record_byteaddr(base, chunk))
         # EOF record
         f.write(":00000001FF\n")
-    print(f"[ok] Wrote {out_path} ({len(byte_array)} bytes)")
+    print(f"[ok] Wrote {rom_path} ({len(rom_byte_array)} bytes)")
+
+    # Write RAM Intel HEX file
+    ram_byte_array = bytearray()
+    for addr in range(size_words):
+        word = asm.ram_mem.get(addr, FILL_WORD) & 0xFFFF
+        ram_byte_array.append(word & 0xFF)        # low byte first
+        ram_byte_array.append((word >> 8) & 0xFF) # high byte
+    ram_path = Path(f"{path_prefix}_ram.ihex")
+    with ram_path.open("w") as f:
+        for base in range(0, len(ram_byte_array), line_size):
+            chunk = ram_byte_array[base:base+line_size]
+            f.write(_intel_hex_record_byteaddr(base, chunk))
+        # EOF record
+        f.write(":00000001FF\n")
+    print(f"[ok] Wrote {ram_path} ({len(ram_byte_array)} bytes)")
 
 def assemble_file(user_in_path, out_path):
     boot_text = Path("boot.asm").read_text(encoding="utf-8")
@@ -787,24 +918,76 @@ def assemble_file(user_in_path, out_path):
     prologue_text = Path("isr_prologue.asm").read_text(encoding="utf-8")
     epilogue_text = Path("isr_epilogue.asm").read_text(encoding="utf-8")
 
-    # Combine: boot, user, then ISR scaffold
-    combined_text = boot_text + "\n" + prologue_text + "\n" + user_text + "\n" + epilogue_text
+    # Combine with proper section markers:
+    # Boot code and interrupts must be in ROM
+    combined_text = ".section ROM\n" + boot_text + "\n" + \
+                   prologue_text + "\n" + \
+                   user_text + "\n" + \
+                   epilogue_text
 
     a = Asm(combined_text)
     a.pass1()   # pass1 sees both files in order
     a.pass2()          # pass2 emits both files in order
 
+    fatal_errors = [e for e in a.errors if not e.startswith("Warning:")]
     if a.errors:
-        print("Errors:")
+        print("Messages:")
         for e in a.errors:
             print(" -", e)
+    
+    if fatal_errors:
         sys.exit(1)
+
+    # Print memory map summary
+    # Get stack init address from boot.asm
+    try:
+        boot_text = Path("boot.asm").read_text(encoding="utf-8")
+        # Look for LDI A, value pattern
+        stack_match = re.search(r'LDI\s+A\s*,\s*(0x[0-9A-Fa-f]+)', boot_text)
+        stack_addr = int(stack_match.group(1), 16) if stack_match else None
+    except:
+        stack_addr = None
+
+    print("\nMemory Map Summary:")
+    print("-" * 60)
+    
+    # ROM section summary
+    print("ROM Section:")
+    print("  System Areas:")
+    print("    Boot code            at 0x0000")
+    print("    Interrupt Handler    at 0xFE00")
+    if stack_addr is not None:
+        print(f"    Stack Initialized    at 0x{stack_addr:04X}")
+    
+    print("\n  Program Labels:")
+    rom_labels = {name: addr for name, addr in a.labels.items() if a.label_sections.get(name) == "ROM"}
+    if rom_labels:
+        for name, addr in sorted(rom_labels.items(), key=lambda x: x[1]):
+            if name != "BOOT_MSG":  # Skip internal boot message label
+                print(f"    {name:20} at 0x{addr:04X}")
+    last_used_rom = max(a.rom_mem.keys()) if a.rom_mem else 0
+    print(f"\n  ROM Usage: 0x0000 to 0x{last_used_rom:04X}")
+    
+    # RAM section summary
+    print("\nRAM Section:")
+    ram_labels = {name: addr for name, addr in a.labels.items() if a.label_sections.get(name) == "RAM"}
+    if ram_labels:
+        print("  Data Labels:")
+        for name, addr in sorted(ram_labels.items(), key=lambda x: x[1]):
+            print(f"    {name:20} at 0x{addr:04X}")
+    last_used_ram = max(a.ram_mem.keys()) if a.ram_mem else -1
+    if last_used_ram >= 0:
+        print(f"\n  RAM Usage: 0x0000 to 0x{last_used_ram:04X}")
+    else:
+        print("\n  RAM Usage: None")
+    
+    print("-" * 60)
 
     a.write_words_hex(out_path)
     base = out_path.rsplit('.', 1)[0]
     write_bin_image(a, base)
     write_intel_hex_image(a, base)
-    print(f"[ok] Wrote {out_path} and companion binary/ihex images")
+    print(f"\n[ok] Wrote {out_path} and companion binary/ihex images")
 
 
 

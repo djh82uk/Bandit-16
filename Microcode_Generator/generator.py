@@ -30,7 +30,7 @@ CONTROL_LINES_MAP = {
     "SPDOut": (4, 4), "SPAOut": (4, 5), "SPINC": (4, 6), "SPDEC": (4, 7),
     # ROM 5
     "JN": (5, 0), "JO": (5, 1), "FO": (5, 2), "FSI": (5, 3),
-    "INTC": (5, 4), "JMPI": (5, 5), "BSW": (5, 6), "NC6": (5, 7),
+    "INTC": (5, 4), "JMPI": (5, 5), "BSRO": (5, 6), "BSRA": (5, 7),
 }
 
 
@@ -64,14 +64,14 @@ INSTRUCTIONS = {
     "SPINC": (0b00010111, "INTC","CO,MI","ROO, IIH, CE","SPINC","EndCmd","","","","","","","","","","",""),
     "SPDEC": (0b00011000, "INTC","CO,MI","ROO, IIH, CE","SPDEC","EndCmd","","","","","","","","","","",""),
     "FI": (0b00011001, "INTC","CO,MI","ROO, IIH, CE","FI","EndCmd","","","","","","","","","","",""),
-    #"LDCO": (0b00011010, "INTC","CO,MI","ROO, IIH","CDO","CE","EndCmd","","","","","","","","","",""),
     "JMPR": (0b00011011, "INTC","CO,MI","ROO, IIH, CE","RegOut, IIL","IOL, JMP","EndCmd","","","","","","","","","",""),
     "JN": (0b00011100, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JN","EndCmd","","","","","","","","",""),
     "JO":  (0b00011101, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, JO","EndCmd","","","","","","","","",""),
     "FPUSH": (0b00011110, "INTC","CO,MI","ROO, IIH, CE","MI, SPAOut","FO, RAI","SPDEC","EndCmd","","","","","","","","",""),
     "FPOP":  (0b00011111, "INTC","CO,MI","ROO, IIH, CE","SPINC","MI, SPAOut","FSI, RAO","EndCmd","","","","","","","","",""),
     "JMPI":  (0b00100000, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","JMPI","EndCmd","","","","","","","","",""),
-    "BSW":  (0b00100001, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, BSW","EndCmd","","","","","","","","","")
+    "BSRO":  (0b00100001, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, BSRO","EndCmd","","","","","","","","",""),
+    "BSRA": (0b00100010, "INTC","CO,MI","ROO, IIH, CE","CO, MI","ROO, IIL, CE","IOL, BSRA","EndCmd","","","","","","","","","")
 
 }
 
@@ -178,7 +178,7 @@ def write_intel_hex_files(output_prefix="PCB_microcode_HEX", line_size=16):
     Splits ROM into lines of 'line_size' bytes per record.
     """
     for rom_id in ROM_IDS:
-        out_path = Path(f"{output_prefix}_{rom_id}.hex")
+        out_path = Path(f"{output_prefix}_{rom_id}.ihex")
         with out_path.open("w") as f:
             rom = rom_data[rom_id]
             # write data records in chunks
