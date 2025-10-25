@@ -231,6 +231,77 @@ JCTest:
 IOO  Y, [0x0002] 
 JMP Wait11
 
+
+Test12:
+
+DISPTXT A, <<EOB, [0x0004]
+
+Test 12: BSRO and BSRA
+Result should be 0x0605
+Check the Hex Output 
+Press Enter to Continue
+
+EOB
+
+BSRA 0x1000
+Back_to_rom:
+IOO  A, [0x0002] 
+Wait12:
+FI
+JNI INPUT12
+JMP Wait12
+
+Test13:
+
+DISPTXT A, <<EOB, [0x0004]
+
+Test 13: JSR and RET
+Result should be 0x098C
+Check the Hex Output 
+Press Enter to Continue
+
+EOB
+
+JSR test_subroutine13
+LDI X, 1222
+ADD X, B, A
+
+IOO  A, [0x0002] 
+Wait13:
+FI
+JNI INPUT13
+JMP Wait13
+
+test_subroutine13:
+LDI B, 1222
+RET
+
+Test14:
+
+DISPTXT A, <<EOB, [0x0004]
+
+Test 14: Push and POP
+Result should be 0x018F
+Check the Hex Output 
+Press Enter to Continue
+
+EOB
+
+LDI A, 133
+Push A
+LDI A, 266
+PUSH A
+NOP
+POP X
+POP Y
+ADD X, Y, B
+
+IOO  B, [0x0002] 
+Wait14:
+FI
+JNI INPUT14
+JMP Wait14
+
 INPUT1:
 
     IOI  Y, [0x0008]    
@@ -284,9 +355,29 @@ INPUT10:
 INPUT11:
 
     IOI  Y, [0x0008]  
+    JMP Test12
+
+INPUT12:
+
+    IOI  Y, [0x0008]  
+    JMP Test13
+
+INPUT13:
+
+    IOI  Y, [0x0008]  
+    JMP Test14
+
+INPUT14:
+
+    IOI  Y, [0x0008]  
     JMP Finish
 
 Finish:
 HLT
 
 
+.section RAM
+.org 0x1000         ; Start of RAM data section
+
+LDI A, 1541
+BSRO Back_to_rom

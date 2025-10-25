@@ -41,7 +41,9 @@ jobs:
           mkdir artifacts
           cp Microcode_Generator/*.bin artifacts/ || true
           cp Microcode_Generator/*.hex artifacts/ || true
+          cp Microcode_Generator/*.ihex artifacts/ || true
           cp Assembler/*.hex artifacts/ || true
+          cp Assembler/*.ihex artifacts/ || true
           cp Assembler/*.bin artifacts/ || true
 
       - name: Create artifacts archive
