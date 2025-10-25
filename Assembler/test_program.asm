@@ -276,6 +276,32 @@ test_subroutine13:
 LDI B, 1222
 RET
 
+Test14:
+
+DISPTXT A, <<EOB, [0x0004]
+
+Test 14: Push and POP
+Result should be 0x018F
+Check the Hex Output 
+Press Enter to Continue
+
+EOB
+
+LDI A, 133
+Push A
+LDI A, 266
+PUSH A
+NOP
+POP X
+POP Y
+ADD X, Y, B
+
+IOO  B, [0x0002] 
+Wait14:
+FI
+JNI INPUT14
+JMP Wait14
+
 INPUT1:
 
     IOI  Y, [0x0008]    
@@ -337,6 +363,11 @@ INPUT12:
     JMP Test13
 
 INPUT13:
+
+    IOI  Y, [0x0008]  
+    JMP Test14
+
+INPUT14:
 
     IOI  Y, [0x0008]  
     JMP Finish
